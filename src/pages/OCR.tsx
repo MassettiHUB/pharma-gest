@@ -18,6 +18,22 @@ export function OCR() {
     const [editingIdx, setEditingIdx] = useState<number | null>(null);
     const [rowForm, setRowForm] = useState<any>({});
 
+    const [testResult, setTestResult] = useState<{ status: string, message: string } | null>(null);
+
+    const checkHealth = async () => {
+        try {
+            const res = await fetch('/api/health');
+            const data = await res.json();
+            setTestResult(data);
+            if (data.status === 'ok') {
+                alert('Connessione riuscita! Il server risponde correttamente.');
+            }
+        } catch (e) {
+            console.error(e);
+            alert('Connessione FALLITA: Il server non risponde.');
+        }
+    };
+
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
@@ -53,9 +69,9 @@ export function OCR() {
             } else {
                 alert('Errore API: ' + (data.error || 'Server error'));
             }
-        } catch (err) {
+        } catch (err: any) {
             console.error(err);
-            alert('Errore di connessione al server');
+            alert('Errore di connessione al server: ' + (err.message || 'Rete non disponibile'));
         } finally {
             setIsProcessing(false);
         }
@@ -153,6 +169,9 @@ export function OCR() {
                     <h1>Acquisizione Biglietti (OCR)</h1>
                     <p>Carica o scatta una foto al biglietto stampato per estrarre automaticamente i dati del paziente.</p>
                 </div>
+                <button className="btn btn-secondary" onClick={checkHealth} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <ScanLine size={18} /> Test Connessione Server
+                </button>
             </div>
 
             <div className="ocr-container" style={{ display: 'grid', gridTemplateColumns: 'minmax(300px, 1fr) minmax(300px, 1fr)', gap: '2rem' }}>

@@ -19,6 +19,12 @@ const port = process.env.PORT || 3001;
 app.use(cors());
 app.use(express.json());
 
+// Middleare di log per debuggare le rotte su Netlify
+app.use((req, res, next) => {
+    console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
+    next();
+});
+
 // Configura Multer per ricevere immagini in memoria (senza salvarle su disco)
 const upload = multer({ storage: multer.memoryStorage() });
 
@@ -28,29 +34,6 @@ const apiRouter = express.Router();
 // Health check endpoint per verificare la connettività
 apiRouter.get('/health', (req, res) => {
     res.json({ status: 'ok', message: 'Il server è attivo e vegeto!' });
-});
-
-// ==========================================
-// 1. ENDPOINT CLOUD VISION API
-// ==========================================
-apiRouter.post('/vision', upload.single('image'), async (req, res) => {
-    try {
-        if (!req.file) {
-            return res.status(400).json({ error: 'Nessuna immagine fornita' });
-        }
-
-        // Inizializza il client di Cloud Vision (usa in automatico GOOGLE_APPLICATION_CREDENTIALS dal .env)
-        const client = new ImageAnnotatorClient();
-
-        // Invia l'immagine dal buffer in memoria a Google
-        const [result] = await client.labelDetection(req.file.buffer);
-        const labels = result.labelAnnotations;
-
-        res.json({ labels });
-    } catch (error) {
-        console.error('Errore Cloud Vision API:', error);
-        res.status(500).json({ error: 'Errore durante l analisi dell immagine' });
-    }
 });
 
 // ==========================================
@@ -438,9 +421,12 @@ async function generateAndSendCallList() {
 }
 
 // Schedulazione: Ogni mattina alle 08:00 (Fuso Orario del server locale)
-cron.schedule('0 8 * * *', () => {
-    generateAndSendCallList();
-});
+// Attivata solo fuori da Netlify/Produzione perché in Serverless non persistono i timers
+if (!process.env.NETLIFY && process.env.NODE_ENV !== 'production') {
+    cron.schedule('0 8 * * *', () => {
+        generateAndSendCallList();
+    });
+}
 
 // Endpoint Manuale per testare l'invio immediatamente dal browser o dal frontend
 apiRouter.get('/test-cron-email', async (req, res) => {
