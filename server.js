@@ -25,7 +25,7 @@ const upload = multer({ storage: multer.memoryStorage() });
 // ==========================================
 // 1. ENDPOINT CLOUD VISION API
 // ==========================================
-app.post('/api/vision', upload.single('image'), async (req, res) => {
+apiRouter.post('/vision', upload.single('image'), async (req, res) => {
     try {
         if (!req.file) {
             return res.status(400).json({ error: 'Nessuna immagine fornita' });
@@ -48,7 +48,7 @@ app.post('/api/vision', upload.single('image'), async (req, res) => {
 // ==========================================
 // 1.5. ENDPOINT OCR API (Gemini Multimodal)
 // ==========================================
-app.post('/api/ocr', upload.single('image'), async (req, res) => {
+apiRouter.post('/ocr', upload.single('image'), async (req, res) => {
     try {
         if (!req.file) {
             return res.status(400).json({ error: 'Nessuna immagine fornita' });
@@ -125,7 +125,7 @@ Per il campo "rawText" riporta un log di debug testuale "Time -> Patient - Phone
 // ==========================================
 // 2. ENDPOINT GMAIL API
 // ==========================================
-app.post('/api/send-mail', async (req, res) => {
+apiRouter.post('/send-mail', async (req, res) => {
     const { to, subject, message, accessToken } = req.body;
 
     if (!to || !subject || !message || !accessToken) {
@@ -172,7 +172,7 @@ app.post('/api/send-mail', async (req, res) => {
 // ==========================================
 // 3. ENDPOINT GOOGLE SHEETS API (Sincronizzazione DB)
 // ==========================================
-app.post('/api/sync-sheet', async (req, res) => {
+apiRouter.post('/sync-sheet', async (req, res) => {
     try {
         const { appointments } = req.body;
         if (!appointments || !Array.isArray(appointments) || appointments.length === 0) {
@@ -435,7 +435,7 @@ cron.schedule('0 8 * * *', () => {
 });
 
 // Endpoint Manuale per testare l'invio immediatamente dal browser o dal frontend
-app.get('/api/test-cron-email', async (req, res) => {
+apiRouter.get('/test-cron-email', async (req, res) => {
     const result = await generateAndSendCallList();
     if (result.success) {
         res.json({ message: "Job eseguito con successo", detail: result });
@@ -449,7 +449,7 @@ app.get('/api/test-cron-email', async (req, res) => {
 // ==========================================
 
 // GET: Recupera gli appuntamenti di una data specifica (con ID Riga per poterli aggiornare)
-app.get('/api/calls-for-date', async (req, res) => {
+apiRouter.get('/calls-for-date', async (req, res) => {
     try {
         const dateStr = req.query.date; // es. 2026-03-05
         if (!dateStr) return res.status(400).json({ error: 'Manca il parametro date' });
@@ -509,7 +509,7 @@ app.get('/api/calls-for-date', async (req, res) => {
 });
 
 // POST: Aggiorna in blocco le Note su Google Sheets prendendo le spunte (Confermato/Annullato)
-app.post('/api/update-call-status', async (req, res) => {
+apiRouter.post('/update-call-status', async (req, res) => {
     try {
         const { updates } = req.body;
         // updates = array di oggetti: { rowIndex: 2, newStatus: 'confermato', originalNotes: 'chiamare casa' }
@@ -562,7 +562,7 @@ app.post('/api/update-call-status', async (req, res) => {
 });
 
 // POST: Aggiorna l'esito della visita (Colonne I:L)
-app.post('/api/update-visit-outcome', async (req, res) => {
+apiRouter.post('/update-visit-outcome', async (req, res) => {
     try {
         const { rowIndex, esitoVisita, venduto, followUp, dataRivisita } = req.body;
 
@@ -604,7 +604,7 @@ app.post('/api/update-visit-outcome', async (req, res) => {
 });
 
 // GET: Recupera Pazienti Follow-Up / Anticipo Visita (Filtro per Farmacia)
-app.get('/api/follow-ups', async (req, res) => {
+apiRouter.get('/follow-ups', async (req, res) => {
     try {
         const farmaciaTarget = req.query.farmacia; // es. SOPRAPONTE
         if (!farmaciaTarget) return res.status(400).json({ error: 'Manca il parametro farmacia' });
@@ -668,7 +668,7 @@ app.get('/api/follow-ups', async (req, res) => {
 });
 
 // GET: Statistiche Dashboard (KPIs & Grafici)
-app.get('/api/stats', async (req, res) => {
+apiRouter.get('/stats', async (req, res) => {
     try {
         const sheetId = process.env.GOOGLE_SHEETS_ID;
         const authOptions = {
@@ -808,6 +808,10 @@ app.get('/api/stats', async (req, res) => {
     }
 });
 
+// Montiamo il router sia su / che su /api per massima compatibilità con Netlify e locale
+app.use('/api', apiRouter);
+app.use('/', apiRouter);
+
 // Esporta l'handler per Netlify Functions
 export const handler = serverless(app);
 
@@ -817,3 +821,4 @@ if (process.env.NODE_ENV !== 'production' || !process.env.NETLIFY) {
         console.log(`Server Backend in esecuzione su http://localhost:${port}`);
     });
 }
+
