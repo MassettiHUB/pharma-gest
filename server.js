@@ -22,6 +22,14 @@ app.use(express.json());
 // Configura Multer per ricevere immagini in memoria (senza salvarle su disco)
 const upload = multer({ storage: multer.memoryStorage() });
 
+// Definiamo il Router per le API
+const apiRouter = express.Router();
+
+// Health check endpoint per verificare la connettività
+apiRouter.get('/health', (req, res) => {
+    res.json({ status: 'ok', message: 'Il server è attivo e vegeto!' });
+});
+
 // ==========================================
 // 1. ENDPOINT CLOUD VISION API
 // ==========================================
