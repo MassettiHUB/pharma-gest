@@ -1,0 +1,226 @@
+import React, { useState, useEffect } from 'react';
+import {
+    LayoutDashboard,
+    Users,
+    Calendar,
+    Target,
+    TrendingUp,
+    Clock,
+    ArrowUpRight,
+    PieChart as PieChartIcon
+} from 'lucide-react';
+import {
+    ResponsiveContainer,
+    PieChart,
+    Pie,
+    Cell,
+    Tooltip,
+    Legend,
+    XAxis,
+    YAxis,
+    CartesianGrid,
+    AreaChart,
+    Area
+} from 'recharts';
+
+interface DashboardData {
+    kpi: {
+        appuntamentiMese: number;
+        appuntamentiAttesa: number;
+        tassoConversione: number;
+        daRicontattare: number;
+    };
+    charts: {
+        esiti: Array<{ name: string; value: number; fill: string }>;
+        trend: Array<{ mese: string; appuntamenti: number }>;
+    };
+}
+
+export function Dashboard() {
+    const [data, setData] = useState<DashboardData | null>(null);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchStats = async () => {
+            try {
+                const response = await fetch('/api/stats');
+                const result = await response.json();
+                if (result.success) {
+                    setData(result.data);
+                }
+            } catch (error) {
+                console.error("Errore caricamento statistiche:", error);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchStats();
+    }, []);
+
+    if (loading) {
+        return (
+            <div className="page-container" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
+                <div style={{ textAlign: 'center' }}>
+                    <div style={{ width: '40px', height: '40px', border: '4px solid #f3f3f3', borderTop: '4px solid #3b82f6', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto 1rem' }} />
+                    <p style={{ color: '#64748b' }}>Analisi dei dati in corso...</p>
+                </div>
+            </div>
+        );
+    }
+
+    if (!data) return null;
+
+    return (
+        <div className="page-container">
+            <header style={{ marginBottom: '2rem' }}>
+                <h1 style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', margin: '0 0 0.5rem 0' }}>
+                    <LayoutDashboard size={32} color="#3b82f6" />
+                    Dashboard Prestazioni
+                </h1>
+                <p style={{ color: '#64748b', margin: 0 }}>Riepilogo attività e indicatori di performance.</p>
+            </header>
+
+            {/* KPI Cards */}
+            <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+                gap: '1.5rem',
+                marginBottom: '2.5rem'
+            }}>
+                <StatCard
+                    title="Appuntamenti Mese"
+                    value={data.kpi.appuntamentiMese}
+                    icon={<Calendar color="#3b82f6" />}
+                    color="#eff6ff"
+                    detail="Mese corrente"
+                />
+                <StatCard
+                    title="Appuntamenti in Attesa"
+                    value={data.kpi.appuntamentiAttesa}
+                    icon={<Clock color="#f59e0b" />}
+                    color="#fffbeb"
+                    detail="Slot da confermare"
+                />
+                <StatCard
+                    title="Tasso Conversione"
+                    value={`${data.kpi.tassoConversione}%`}
+                    icon={<Target color="#10b981" />}
+                    color="#ecfdf5"
+                    detail="Visite vs Vendite"
+                />
+                <StatCard
+                    title="Da Ricontattare"
+                    value={data.kpi.daRicontattare}
+                    icon={<Users color="#8b5cf6" />}
+                    color="#f5f3ff"
+                    detail="Follow-up attivi"
+                />
+            </div>
+
+            {/* Charts Section */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '2rem' }}>
+
+                {/* Trend Chart */}
+                <div style={{ background: '#fff', padding: '1.5rem', borderRadius: '16px', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}>
+                    <h3 style={{ margin: '0 0 1.5rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1.1rem' }}>
+                        <TrendingUp size={20} color="#3b82f6" /> Trend Appuntamenti Mensile
+                    </h3>
+                    <div style={{ width: '100%', height: 300 }}>
+                        <ResponsiveContainer>
+                            <AreaChart data={data.charts.trend}>
+                                <defs>
+                                    <linearGradient id="colorApp" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.1} />
+                                        <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                                    </linearGradient>
+                                </defs>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                                <XAxis dataKey="mese" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} dy={10} />
+                                <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} />
+                                <Tooltip
+                                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
+                                />
+                                <Area
+                                    type="monotone"
+                                    dataKey="appuntamenti"
+                                    stroke="#3b82f6"
+                                    strokeWidth={3}
+                                    fillOpacity={1}
+                                    fill="url(#colorApp)"
+                                />
+                            </AreaChart>
+                        </ResponsiveContainer>
+                    </div>
+                </div>
+
+                {/* Outcomes Chart */}
+                <div style={{ background: '#fff', padding: '1.5rem', borderRadius: '16px', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}>
+                    <h3 style={{ margin: '0 0 1.5rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1.1rem' }}>
+                        <PieChartIcon size={20} color="#10b981" /> Distribuzione Esiti Visite
+                    </h3>
+                    <div style={{ width: '100%', height: 300 }}>
+                        <ResponsiveContainer>
+                            <PieChart>
+                                <Pie
+                                    data={data.charts.esiti}
+                                    cx="50%"
+                                    cy="50%"
+                                    innerRadius={60}
+                                    outerRadius={80}
+                                    paddingAngle={5}
+                                    dataKey="value"
+                                >
+                                    {data.charts.esiti.map((entry, index) => (
+                                        <Cell key={`cell-${index}`} fill={entry.fill} />
+                                    ))}
+                                </Pie>
+                                <Tooltip />
+                                <Legend />
+                            </PieChart>
+                        </ResponsiveContainer>
+                    </div>
+                </div>
+
+            </div>
+
+            <style>{`
+                @keyframes spin {
+                    0% { transform: rotate(0deg); }
+                    100% { transform: rotate(360deg); }
+                }
+            `}</style>
+        </div>
+    );
+}
+
+function StatCard({ title, value, icon, color, detail }: { title: string, value: string | number, icon: React.ReactNode, color: string, detail: string }) {
+    return (
+        <div style={{
+            background: '#fff',
+            padding: '1.5rem',
+            borderRadius: '16px',
+            border: '1px solid #e2e8f0',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+            transition: 'transform 0.2s',
+            cursor: 'default'
+        }}
+            onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-4px)'}
+            onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+        >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
+                <div style={{ background: color, padding: '0.75rem', borderRadius: '12px' }}>
+                    {icon}
+                </div>
+                <div style={{ background: '#f8fafc', padding: '0.25rem 0.5rem', borderRadius: '20px', fontSize: '0.7rem', fontWeight: 600, color: '#64748b', display: 'flex', alignItems: 'center', gap: '0.2rem' }}>
+                    <ArrowUpRight size={12} /> Live
+                </div>
+            </div>
+            <div>
+                <span style={{ color: '#64748b', fontSize: '0.85rem', fontWeight: 500 }}>{title}</span>
+                <h2 style={{ margin: '0.25rem 0', fontSize: '1.75rem', fontWeight: 700, color: '#0f172a' }}>{value}</h2>
+                <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>{detail}</span>
+            </div>
+        </div>
+    );
+}
