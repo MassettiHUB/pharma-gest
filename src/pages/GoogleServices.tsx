@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
-import { Camera, Mail, Send } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Camera, Mail, Send, Cloud } from 'lucide-react';
+import { usePharmacy } from '../context/PharmacyContext';
 
 export function GoogleServices() {
+    const { googleToken, googleUser, loginWithGoogle } = usePharmacy();
     const [image, setImage] = useState<File | null>(null);
     const [visionResult, setVisionResult] = useState<string[]>([]);
     const [visionError, setVisionError] = useState('');
@@ -10,6 +12,13 @@ export function GoogleServices() {
     const [emailData, setEmailData] = useState({ to: '', subject: '', message: '', accessToken: '' });
     const [emailStatus, setEmailStatus] = useState('');
     const [isEmailLoading, setIsEmailLoading] = useState(false);
+
+    // Sincronizza il token dal context se presente
+    useEffect(() => {
+        if (googleToken) {
+            setEmailData(prev => ({ ...prev, accessToken: googleToken }));
+        }
+    }, [googleToken]);
 
     const handleVisionSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -99,15 +108,32 @@ export function GoogleServices() {
 
             <section style={{ background: '#f8f9fa', padding: '1.5rem', borderRadius: '8px' }}>
                 <h3><Mail size={20} style={{ marginRight: '8px', verticalAlign: 'middle' }} /> Gmail API</h3>
-                <form onSubmit={handleEmailSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                    <input
-                        type="text"
-                        placeholder="Access Token da Google OAuth"
-                        value={emailData.accessToken}
-                        onChange={(e) => setEmailData({ ...emailData, accessToken: e.target.value })}
-                        required
-                        style={{ padding: '0.5rem', borderRadius: '4px', border: '1px solid #ccc' }}
-                    />
+
+                {!googleToken ? (
+                    <div style={{ textAlign: 'center', padding: '2rem', border: '1px dashed #ccc', borderRadius: '8px', marginBottom: '1rem' }}>
+                        <Cloud size={48} color="#64748b" style={{ marginBottom: '1rem' }} />
+                        <p style={{ color: '#64748b' }}>Devi accedere con Google per inviare email.</p>
+                        <button onClick={loginWithGoogle} className="btn btn-primary" style={{ marginTop: '0.5rem' }}>
+                            Accedi con Google
+                        </button>
+                    </div>
+                ) : (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: '#d1fae5', color: '#047857', padding: '0.75rem', borderRadius: '8px', marginBottom: '1rem', fontSize: '0.9rem' }}>
+                        <Send size={16} /> Autenticato come: <strong>{googleUser?.email || 'Utente Google'}</strong>
+                    </div>
+                )}
+
+                <form onSubmit={handleEmailSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem', opacity: googleToken ? 1 : 0.5, pointerEvents: googleToken ? 'all' : 'none' }}>
+                    {!googleToken && (
+                        <input
+                            type="text"
+                            placeholder="Access Token da Google OAuth"
+                            value={emailData.accessToken}
+                            onChange={(e) => setEmailData({ ...emailData, accessToken: e.target.value })}
+                            required
+                            style={{ padding: '0.5rem', borderRadius: '4px', border: '1px solid #ccc' }}
+                        />
+                    )}
                     <small>Puoi generare un token reale e temporaneo da <a href="https://developers.google.com/oauthplayground" target="_blank" rel="noreferrer">OAuth Playground</a> (con scope Gmail).</small>
                     <input
                         type="email"

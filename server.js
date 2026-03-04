@@ -42,6 +42,77 @@ apiRouter.get('/health', (req, res) => {
 });
 
 // ==========================================
+// 1. AUTENTICAZIONE GOOGLE (OAuth 2.0)
+// ==========================================
+
+// Inizia il flusso di login
+apiRouter.get('/auth/google', (req, res) => {
+    const oAuth2Client = new google.auth.OAuth2(
+        process.env.GOOGLE_CLIENT_ID,
+        process.env.GOOGLE_CLIENT_SECRET,
+        process.env.GOOGLE_REDIRECT_URI || `${process.env.APP_URL || 'http://localhost:5173'}/api/auth/callback`
+    );
+
+    const scopes = [
+        'https://www.googleapis.com/auth/userinfo.profile',
+        'https://www.googleapis.com/auth/userinfo.email',
+        'https://www.googleapis.com/auth/gmail.send',
+        'https://www.googleapis.com/auth/calendar.events'
+    ];
+
+    const url = oAuth2Client.generateAuthUrl({
+        access_type: 'offline',
+        scope: scopes,
+        prompt: 'consent'
+    });
+
+    res.redirect(url);
+});
+
+// Callback dopo il consenso di Google
+apiRouter.get('/auth/callback', async (req, res) => {
+    const code = req.query.code;
+    if (!code) return res.status(400).send('Codice di autorizzazione mancante');
+
+    try {
+        const oAuth2Client = new google.auth.OAuth2(
+            process.env.GOOGLE_CLIENT_ID,
+            process.env.GOOGLE_CLIENT_SECRET,
+            process.env.GOOGLE_REDIRECT_URI || `${process.env.APP_URL || 'http://localhost:5173'}/api/auth/callback`
+        );
+
+        const { tokens } = await oAuth2Client.getToken(code);
+
+        // Redirect al frontend passando i token (in produzione sarebbe meglio un cookie sicuro o un session store)
+        // Per semplicità li passiamo come parametri hash
+        const frontendUrl = process.env.APP_URL || 'http://localhost:5173';
+        const redirectUrl = `${frontendUrl}/#access_token=${tokens.access_token}&refresh_token=${tokens.refresh_token || ''}`;
+
+        res.redirect(redirectUrl);
+    } catch (error) {
+        console.error('Errore durante lo scambio del codice:', error);
+        res.status(500).send('Errore di autenticazione');
+    }
+});
+
+// Recupera info profilo utente
+apiRouter.get('/auth/userinfo', async (req, res) => {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) return res.status(401).json({ error: 'Token mancante' });
+
+    const token = authHeader.split(' ')[1];
+
+    try {
+        const oauth2 = google.oauth2({ version: 'v2', auth: token });
+        const userInfo = await oauth2.userinfo.get();
+        res.json(userInfo.data);
+    } catch (error) {
+        console.error('Errore recupero userinfo:', error);
+        res.status(401).json({ error: 'Token non valido o scaduto' });
+    }
+});
+
+// ==========================================
 // 1.5. ENDPOINT OCR API (Gemini Multimodal)
 // ==========================================
 apiRouter.post('/ocr', upload.single('image'), async (req, res) => {
@@ -268,8 +339,8 @@ apiRouter.post('/sync-sheet', async (req, res) => {
         res.json({ success: true, inserted: insertedCount, duplicated: duplicateCount });
 
     } catch (error) {
-        console.error('Errore Sincronizzazione Sheets:', error);
-        res.status(500).json({ error: 'Errore durante la comunicazione con Google Sheets' });
+        console.error('Errore Sincronizzazione Fogli:', error);
+        res.status(500).json({ error: 'Errore durante la comunicazione con Google Fogli', details: error.message });
     }
 });
 
@@ -499,11 +570,12 @@ apiRouter.get('/calls-for-date', async (req, res) => {
             }
         }
 
+        console.log(`Trovati ${appointmentsForDate.length} appuntamenti per la data ${dateStr}`);
         res.json({ success: true, count: appointmentsForDate.length, data: appointmentsForDate });
 
     } catch (err) {
         console.error("Errore fetch date:", err);
-        res.status(500).json({ error: "Errore lettura Sheets" });
+        res.status(500).json({ error: "Errore lettura Fogli", details: err.message });
     }
 });
 
@@ -555,8 +627,8 @@ apiRouter.post('/update-call-status', async (req, res) => {
         res.json({ success: true, updatedRows: updates.length });
 
     } catch (err) {
-        console.error("Errore update note sheets:", err);
-        res.status(500).json({ error: "Errore scrittura su Sheets" });
+        console.error("Errore update note fogli:", err);
+        res.status(500).json({ error: "Errore scrittura su Fogli", details: err.message });
     }
 });
 
@@ -598,7 +670,7 @@ apiRouter.post('/update-visit-outcome', async (req, res) => {
 
     } catch (err) {
         console.error("Errore salvataggio esito visita:", err);
-        res.status(500).json({ error: "Errore scrittura su Sheets" });
+        res.status(500).json({ error: "Errore scrittura su Fogli", details: err.message });
     }
 });
 
@@ -662,14 +734,20 @@ apiRouter.get('/follow-ups', async (req, res) => {
 
     } catch (err) {
         console.error("Errore fetch follow-ups:", err);
-        res.status(500).json({ error: "Errore lettura Sheets per Follow-ups" });
+        res.status(500).json({ error: "Errore lettura Fogli per Follow-ups", details: err.message });
     }
 });
 
 // GET: Statistiche Dashboard (KPIs & Grafici)
 apiRouter.get('/stats', async (req, res) => {
     try {
+        console.log("Richiesta statistiche dashboard...");
         const sheetId = process.env.GOOGLE_SHEETS_ID;
+        if (!sheetId) {
+            console.error("GOOGLE_SHEETS_ID non configurato");
+            return res.status(500).json({ error: "Configurazione mancante" });
+        }
+
         const authOptions = {
             scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
         };
@@ -678,17 +756,23 @@ apiRouter.get('/stats', async (req, res) => {
         } else {
             authOptions.keyFile = process.env.GOOGLE_APPLICATION_CREDENTIALS;
         }
+
         const auth = new google.auth.GoogleAuth(authOptions);
         const sheets = google.sheets({ version: 'v4', auth });
+
+        console.log("Recupero metadati foglio...");
         const spreadsheetMeta = await sheets.spreadsheets.get({ spreadsheetId: sheetId });
         const sheetName = spreadsheetMeta.data.sheets[0].properties.title;
+        console.log(`Nome foglio trovato: ${sheetName}`);
 
         // Estrae tutto il tabellone A:L
+        console.log("Lettura dati da Google Sheets...");
         const readResponse = await sheets.spreadsheets.values.get({
             spreadsheetId: sheetId,
             range: `${sheetName}!A:L`,
         });
         const rows = readResponse.data.values || [];
+        console.log(`Lette ${rows.length} righe.`);
 
         const today = new Date();
         const currentMonth = today.getMonth();
@@ -785,6 +869,7 @@ apiRouter.get('/stats', async (req, res) => {
             appuntamenti: trendMensileMap[m]
         }));
 
+        console.log("Statistiche elaborate con successo.");
         res.json({
             success: true,
             data: {
@@ -803,7 +888,7 @@ apiRouter.get('/stats', async (req, res) => {
 
     } catch (err) {
         console.error("Errore fetch stats dashboard:", err);
-        res.status(500).json({ error: "Errore lettura Sheets per statistiche" });
+        res.status(500).json({ error: "Errore lettura Fogli per statistiche", details: err.message });
     }
 });
 

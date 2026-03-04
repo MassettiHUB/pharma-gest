@@ -52,4 +52,8 @@ export type PharmacyContextType = {
     setCalendarOverrides: (overrides: CalendarOverrides) => void;
     appointments: Appointment[];
     setAppointments: (a: Appointment[]) => void;
+    googleUser: any;
+    googleToken: string | null;
+    loginWithGoogle: () => void;
+    logoutGoogle: () => void;
 };

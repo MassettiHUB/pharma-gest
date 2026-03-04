@@ -52,7 +52,8 @@ export function Giornate() {
                 if (data.success) {
                     setAppointments(data.data);
                 } else {
-                    setError('Errore API: ' + data.error);
+                    const detailMsg = data.details ? ` (${data.details})` : '';
+                    setError('Errore API: ' + data.error + detailMsg);
                 }
             } catch (err: any) {
                 setError('Impossibile connettersi al Server: ' + err.message);

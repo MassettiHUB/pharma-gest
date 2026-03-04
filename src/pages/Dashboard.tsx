@@ -39,17 +39,28 @@ interface DashboardData {
 export function Dashboard() {
     const [data, setData] = useState<DashboardData | null>(null);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
         const fetchStats = async () => {
             try {
                 const response = await fetch('/api/stats');
+                if (!response.ok) {
+                    throw new Error(`Errore HTTP: ${response.status}`);
+                }
                 const result = await response.json();
                 if (result.success) {
                     setData(result.data);
+                } else {
+                    // Mostra l'errore principale e il dettaglio se presente
+                    const errorMsg = result.error || "Errore sconosciuto nel recupero dei dati.";
+                    const details = result.details ? ` (${result.details})` : "";
+                    setError(`${errorMsg}${details}`);
                 }
-            } catch (error) {
+            } catch (error: any) {
                 console.error("Errore caricamento statistiche:", error);
+                const errorMessage = error.message || "Impossibile caricare le statistiche.";
+                setError(errorMessage);
             } finally {
                 setLoading(false);
             }
@@ -64,6 +75,23 @@ export function Dashboard() {
                 <div style={{ textAlign: 'center' }}>
                     <div style={{ width: '40px', height: '40px', border: '4px solid #f3f3f3', borderTop: '4px solid #3b82f6', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto 1rem' }} />
                     <p style={{ color: '#64748b' }}>Analisi dei dati in corso...</p>
+                </div>
+            </div>
+        );
+    }
+
+    if (error) {
+        return (
+            <div className="page-container" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
+                <div style={{ textAlign: 'center', padding: '2rem', background: '#fff1f2', borderRadius: '12px', border: '1px solid #fda4af', maxWidth: '500px' }}>
+                    <h2 style={{ color: '#be123c', marginBottom: '1rem' }}>Spiacenti, si è verificato un errore</h2>
+                    <p style={{ color: '#9f1239', marginBottom: '1.5rem' }}>{error}</p>
+                    <button
+                        onClick={() => window.location.reload()}
+                        style={{ background: '#be123c', color: 'white', border: 'none', padding: '0.75rem 1.5rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 600 }}
+                    >
+                        Riprova
+                    </button>
                 </div>
             </div>
         );

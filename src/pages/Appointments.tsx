@@ -4,7 +4,7 @@ import { FileSpreadsheet, Plus, Download, Users, Check, Clock, CalendarCheck2, P
 import type { Appointment } from '../types/pharmacy';
 
 export function Appointments() {
-    const { pharmacies, currentUser, genericPlan, calendarOverrides, appointments, setAppointments } = usePharmacy();
+    const { pharmacies, currentUser, genericPlan, calendarOverrides, appointments, setAppointments, googleToken } = usePharmacy();
     const [isAdding, setIsAdding] = useState(false);
     const [syncing, setSyncing] = useState(false);
     const [showCallList, setShowCallList] = useState(false);
@@ -149,7 +149,8 @@ export function Appointments() {
             if (syncData.success) {
                 alert(`Sincronizzazione completata!\\n- Inseriti: ${syncData.inserted}\\n- Duplicati ignorati: ${syncData.duplicated}`);
             } else {
-                alert("Errore durante la sincronizzazione su Google Sheets: " + syncData.error);
+                const detailMsg = syncData.details ? ` (${syncData.details})` : '';
+                alert("Errore durante la sincronizzazione su Google Fogli: " + syncData.error + detailMsg);
             }
         } catch (e) {
             console.error("Fetch Error syncing sheets:", e);
@@ -191,6 +192,10 @@ export function Appointments() {
     };
 
     const handleSendTestEmail = async () => {
+        if (!googleToken) {
+            alert("Devi effettuare l'accesso con Google prima di testare l'invio.");
+            return;
+        }
         setSendingEmail(true);
         try {
             const res = await fetch('/api/test-cron-email');
@@ -200,7 +205,7 @@ export function Appointments() {
             } else if (data.message) {
                 alert("Email inviata con successo! Controlla la casella di Marisa.");
             } else {
-                alert("Errore invio email: " + (data.error || "Sconosciuto"));
+                alert("Errore invio email: " + (data.error || "Sconosciuto") + (data.detail ? `\n\nDettaglio: ${data.detail}` : ""));
             }
         } catch (e) {
             console.error(e);

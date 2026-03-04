@@ -126,8 +126,65 @@ export function PharmacyProvider({ children }: { children: React.ReactNode }) {
         localStorage.setItem('appointments', JSON.stringify(appointments));
     }, [appointments]);
 
+    const [googleToken, setGoogleToken] = useState<string | null>(() => localStorage.getItem('googleToken'));
+    const [googleUser, setGoogleUser] = useState<any>(null);
+
+    const loginWithGoogle = () => {
+        window.location.href = '/api/auth/google';
+    };
+
+    const logoutGoogle = () => {
+        setGoogleToken(null);
+        setGoogleUser(null);
+        localStorage.removeItem('googleToken');
+        localStorage.removeItem('googleRefreshToken');
+    };
+
+    // Gestione del token dal redirect hash (#access_token=...)
+    useEffect(() => {
+        const hash = window.location.hash;
+        if (hash.includes('access_token=')) {
+            const params = new URLSearchParams(hash.substring(1));
+            const token = params.get('access_token');
+            const refreshToken = params.get('refresh_token');
+
+            if (token) {
+                setGoogleToken(token);
+                localStorage.setItem('googleToken', token);
+                if (refreshToken) localStorage.setItem('googleRefreshToken', refreshToken);
+
+                // Pulisci l'URL
+                window.history.replaceState(null, '', window.location.pathname + window.location.search);
+            }
+        }
+    }, []);
+
+    // Recupera info utente quando abbiamo un token
+    useEffect(() => {
+        if (googleToken && !googleUser) {
+            fetch('/api/auth/userinfo', {
+                headers: { 'Authorization': `Bearer ${googleToken}` }
+            })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.error) {
+                        // Token probabilmente scaduto
+                        logoutGoogle();
+                    } else {
+                        setGoogleUser(data);
+                    }
+                })
+                .catch(() => logoutGoogle());
+        }
+    }, [googleToken]);
+
     return (
-        <PharmacyContext.Provider value={{ pharmacies, addPharmacy, updatePharmacy, removePharmacy, currentUser, setCurrentUser, genericPlan, setGenericPlan, calendarOverrides, setCalendarOverrides, appointments, setAppointments }}>
+        <PharmacyContext.Provider value={{
+            pharmacies, addPharmacy, updatePharmacy, removePharmacy,
+            currentUser, setCurrentUser, genericPlan, setGenericPlan,
+            calendarOverrides, setCalendarOverrides, appointments, setAppointments,
+            googleUser, googleToken, loginWithGoogle, logoutGoogle
+        }}>
             {children}
         </PharmacyContext.Provider>
     );
