@@ -54,6 +54,8 @@ export type PharmacyContextType = {
     setAppointments: (a: Appointment[]) => void;
     googleUser: any;
     googleToken: string | null;
+    selectedCalendarId: string | null;
+    setSelectedCalendarId: (id: string | null) => void;
     loginWithGoogle: () => void;
     logoutGoogle: () => void;
 };

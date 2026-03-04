@@ -128,6 +128,15 @@ export function PharmacyProvider({ children }: { children: React.ReactNode }) {
 
     const [googleToken, setGoogleToken] = useState<string | null>(() => localStorage.getItem('googleToken'));
     const [googleUser, setGoogleUser] = useState<any>(null);
+    const [selectedCalendarId, setSelectedCalendarId] = useState<string | null>(() => localStorage.getItem('selectedCalendarId'));
+
+    useEffect(() => {
+        if (selectedCalendarId) {
+            localStorage.setItem('selectedCalendarId', selectedCalendarId);
+        } else {
+            localStorage.removeItem('selectedCalendarId');
+        }
+    }, [selectedCalendarId]);
 
     const loginWithGoogle = () => {
         window.location.href = '/api/auth/google';
@@ -183,7 +192,7 @@ export function PharmacyProvider({ children }: { children: React.ReactNode }) {
             pharmacies, addPharmacy, updatePharmacy, removePharmacy,
             currentUser, setCurrentUser, genericPlan, setGenericPlan,
             calendarOverrides, setCalendarOverrides, appointments, setAppointments,
-            googleUser, googleToken, loginWithGoogle, logoutGoogle
+            googleUser, googleToken, selectedCalendarId, setSelectedCalendarId, loginWithGoogle, logoutGoogle
         }}>
             {children}
         </PharmacyContext.Provider>

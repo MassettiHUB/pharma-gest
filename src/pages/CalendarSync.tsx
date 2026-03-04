@@ -1,11 +1,20 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { usePharmacy } from '../context/PharmacyContext';
-import { Calendar as CalendarIcon, AlertCircle, RefreshCw } from 'lucide-react';
+import { Calendar as CalendarIcon, AlertCircle, RefreshCw, CheckCircle2 } from 'lucide-react';
 
 export function CalendarSync() {
-    const { pharmacies, currentUser, genericPlan, calendarOverrides, setCalendarOverrides, appointments } = usePharmacy();
+    const {
+        pharmacies, currentUser, genericPlan, calendarOverrides,
+        setCalendarOverrides, appointments, googleToken,
+        selectedCalendarId, setSelectedCalendarId
+    } = usePharmacy();
+
     const [syncing, setSyncing] = useState(false);
     const [syncMonths, setSyncMonths] = useState(3);
+    const [availableCalendars, setAvailableCalendars] = useState<any[]>([]);
+    const [isLoadingCalendars, setIsLoadingCalendars] = useState(false);
+    const [syncResult, setSyncResult] = useState<{ created: number; total: number } | null>(null);
+
     const [movingAppt, setMovingAppt] = useState<{ dateStr: string; period: 'M' | 'P'; pharmacyId: string; pharmacyName: string } | null>(null);
     const [targetDateStr, setTargetDateStr] = useState<string>('');
     const [targetPeriod, setTargetPeriod] = useState<'M' | 'P'>('M');
@@ -18,13 +27,127 @@ export function CalendarSync() {
         'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre'
     ];
 
-    const handleSync = () => {
+    // Carica la lista dei calendari all'avvio o al login
+    useEffect(() => {
+        if (googleToken) {
+            setIsLoadingCalendars(true);
+            fetch('/api/calendar/list', {
+                headers: { 'Authorization': `Bearer ${googleToken}` }
+            })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        setAvailableCalendars(data.items);
+                        // Se non c'è un calendario selezionato o non è più in lista, prendi il "primary"
+                        if (!selectedCalendarId || !data.items.find((c: any) => c.id === selectedCalendarId)) {
+                            const primary = data.items.find((c: any) => c.primary) || data.items[0];
+                            if (primary) setSelectedCalendarId(primary.id);
+                        }
+                    }
+                })
+                .catch(err => console.error('Errore fetch calendari:', err))
+                .finally(() => setIsLoadingCalendars(false));
+        }
+    }, [googleToken]);
+
+    const handleSync = async () => {
+        if (!googleToken) {
+            alert("Devi effettuare l'accesso con Google prima di sincronizzare.");
+            return;
+        }
+        if (!selectedCalendarId) {
+            alert("Seleziona un calendario di destinazione.");
+            return;
+        }
+
         setSyncing(true);
-        // Simula chiamata API a Google Calendar
-        setTimeout(() => {
+        setSyncResult(null);
+
+        try {
+            // Raccogliamo gli eventi da inviare
+            const eventsToSync: any[] = [];
+            const startDate = new Date();
+            const endDate = new Date();
+            endDate.setMonth(startDate.getMonth() + syncMonths);
+
+            for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+                const dateStr = d.toISOString().split('T')[0];
+                const dayOfMonth = d.getDate();
+                const daysMap = ['DOM', 'LUN', 'MAR', 'MER', 'GIO', 'VEN', 'SAB'];
+                const weekdayCode = daysMap[d.getDay()];
+
+                if (weekdayCode === 'DOM') continue;
+
+                // Base Plan
+                let baseM = '';
+                let baseP = '';
+                if (dayOfMonth <= 28) {
+                    const weekIndex = Math.floor((dayOfMonth - 1) / 7);
+                    const planForDay = genericPlan[weekIndex]?.days[weekdayCode as any];
+                    if (planForDay) {
+                        baseM = planForDay.M;
+                        baseP = planForDay.P;
+                    }
+                }
+
+                // Overrides
+                const override = calendarOverrides[dateStr];
+                const finalM = override && override.M !== undefined ? override.M : baseM;
+                const finalP = override && override.P !== undefined ? override.P : baseP;
+
+                // Appuntamenti per il giorno
+                const apptsForDay = appointments.filter(a => a.dateStr === dateStr);
+
+                if (finalM) {
+                    const pharm = pharmacies.find(p => p.id === finalM);
+                    if (pharm) {
+                        const mAppts = apptsForDay.filter(a => a.timeSlot && parseInt(a.timeSlot.split(':')[0]) < 13);
+                        eventsToSync.push({
+                            title: `Farmacia: ${pharm.name} (M)`,
+                            description: `Turno Mattina presso ${pharm.name}. ${mAppts.length} appuntamenti registrati.`,
+                            start: `${dateStr}T09:00:00`,
+                            end: `${dateStr}T13:00:00`
+                        });
+                    }
+                }
+                if (finalP) {
+                    const pharm = pharmacies.find(p => p.id === finalP);
+                    if (pharm) {
+                        const pAppts = apptsForDay.filter(a => a.timeSlot && parseInt(a.timeSlot.split(':')[0]) >= 13);
+                        eventsToSync.push({
+                            title: `Farmacia: ${pharm.name} (P)`,
+                            description: `Turno Pomeriggio presso ${pharm.name}. ${pAppts.length} appuntamenti registrati.`,
+                            start: `${dateStr}T14:30:00`,
+                            end: `${dateStr}T19:30:00`
+                        });
+                    }
+                }
+            }
+
+            const response = await fetch('/api/calendar/sync', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${googleToken}`
+                },
+                body: JSON.stringify({
+                    calendarId: selectedCalendarId,
+                    events: eventsToSync
+                }),
+            });
+
+            const data = await response.json();
+            if (data.success) {
+                setSyncResult(data.results);
+            } else {
+                alert(`Errore: ${data.error}`);
+            }
+        } catch (error: any) {
+            console.error(error);
+            alert(`Errore di connessione: ${error.message}`);
+        } finally {
             setSyncing(false);
-            alert(`Sincronizzazione di ${syncMonths} mesi completata su Google Calendar con successo!`);
-        }, 2000);
+        }
     };
 
     // Generazione array giorni del mese per la griglia
@@ -113,6 +236,25 @@ export function CalendarSync() {
                     <p>Visualizza le date e sincronizza la programmazione di {currentUser} o del Team con Google Calendar.</p>
                 </div>
                 <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                    {googleToken && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <span style={{ fontSize: '0.875rem', fontWeight: 600 }}>Calendario:</span>
+                            <select
+                                style={{ padding: '0.5rem', borderRadius: '0.375rem', border: '1px solid var(--border)', maxWidth: '200px' }}
+                                value={selectedCalendarId || ''}
+                                onChange={(e) => setSelectedCalendarId(e.target.value)}
+                                disabled={isLoadingCalendars || syncing}
+                            >
+                                {isLoadingCalendars && <option>Caricamento...</option>}
+                                {availableCalendars.map(c => (
+                                    <option key={c.id} value={c.id}>
+                                        {c.summary} {c.primary ? '(Principale)' : ''}
+                                    </option>
+                                ))}
+                                {!isLoadingCalendars && availableCalendars.length === 0 && <option>Nessun calendario trovato</option>}
+                            </select>
+                        </div>
+                    )}
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                         <span style={{ fontSize: '0.875rem', fontWeight: 600 }}>Esporta per:</span>
                         <select
@@ -127,11 +269,18 @@ export function CalendarSync() {
                         </select>
                     </div>
                     <button
-                        className="btn btn-primary"
+                        className={`btn ${syncResult ? 'btn-success' : 'btn-primary'}`}
                         onClick={handleSync}
-                        disabled={syncing}
+                        disabled={syncing || (!googleToken && !syncing)}
+                        style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
                     >
-                        {syncing ? <><RefreshCw className="scanning-pulse" size={18} /> Sincronizzazione...</> : <><CalendarIcon size={18} /> Avvia Sync Google</>}
+                        {syncing ? (
+                            <><RefreshCw className="scanning-pulse" size={18} /> Sincronizzazione...</>
+                        ) : syncResult ? (
+                            <><CheckCircle2 size={18} /> Sync OK ({syncResult.created})</>
+                        ) : (
+                            <><CalendarIcon size={18} /> Avvia Sync Google</>
+                        )}
                     </button>
                 </div>
             </div>

@@ -277,8 +277,94 @@ apiRouter.post('/send-mail', async (req, res) => {
 
         res.json({ success: true, messageId: response.data.id });
     } catch (error) {
-        console.error('Errore Gmail API:', error);
-        res.status(500).json({ error: 'Errore durante l invio dell email' });
+        console.error('Errore invio email:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// ==========================================
+// 2.5. ENDPOINT GOOGLE CALENDAR
+// ==========================================
+
+// GET: Recupera la lista dei calendari dell'utente
+apiRouter.get('/calendar/list', async (req, res) => {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) return res.status(401).json({ error: 'Token mancante' });
+
+    const accessToken = authHeader.replace('Bearer ', '');
+
+    try {
+        const oAuth2Client = new google.auth.OAuth2(
+            process.env.GOOGLE_CLIENT_ID,
+            process.env.GOOGLE_CLIENT_SECRET,
+            process.env.GOOGLE_REDIRECT_URI || `${process.env.APP_URL || 'http://localhost:5173'}/api/auth/callback`
+        );
+        oAuth2Client.setCredentials({ access_token: accessToken });
+
+        const calendar = google.calendar({ version: 'v3', auth: oAuth2Client });
+        const response = await calendar.calendarList.list();
+
+        // Filtriamo solo i calendari scrivibili
+        const calendars = response.data.items || [];
+        const writableCalendars = calendars.filter(c => c.accessRole === 'owner' || c.accessRole === 'writer');
+
+        res.json({ success: true, items: writableCalendars });
+    } catch (error) {
+        console.error('Errore recupero calendari:', error);
+        res.status(500).json({ success: false, error: 'Errore nel recupero della lista calendari: ' + error.message });
+    }
+});
+
+// POST: Sincronizza eventi su Google Calendar
+apiRouter.post('/calendar/sync', async (req, res) => {
+    const authHeader = req.headers.authorization;
+    const { calendarId, events } = req.body; // events è un array di { title, start, end, description }
+
+    if (!authHeader) return res.status(401).json({ error: 'Token mancante' });
+    if (!calendarId || !Array.isArray(events)) return res.status(400).json({ error: 'Parametri mancanti: calendarId o events' });
+
+    const accessToken = authHeader.replace('Bearer ', '');
+
+    try {
+        const oAuth2Client = new google.auth.OAuth2(
+            process.env.GOOGLE_CLIENT_ID,
+            process.env.GOOGLE_CLIENT_SECRET,
+            process.env.GOOGLE_REDIRECT_URI || `${process.env.APP_URL || 'http://localhost:5173'}/api/auth/callback`
+        );
+        oAuth2Client.setCredentials({ access_token: accessToken });
+
+        const calendar = google.calendar({ version: 'v3', auth: oAuth2Client });
+
+        const results = {
+            total: events.length,
+            created: 0,
+            errors: 0
+        };
+
+        // Eseguiamo la sync in sequenza o batch
+        // Per semplicità facciamo inserimenti singoli (in produzione meglio batch o Promise.all con limiti)
+        for (const event of events) {
+            try {
+                await calendar.events.insert({
+                    calendarId: calendarId,
+                    requestBody: {
+                        summary: event.title,
+                        description: event.description,
+                        start: { dateTime: event.start, timeZone: 'Europe/Rome' },
+                        end: { dateTime: event.end, timeZone: 'Europe/Rome' },
+                    },
+                });
+                results.created++;
+            } catch (err) {
+                console.error(`Errore creazione evento ${event.title}:`, err);
+                results.errors++;
+            }
+        }
+
+        res.json({ success: true, results });
+    } catch (error) {
+        console.error('Errore sincronizzazione calendario:', error);
+        res.status(500).json({ success: false, error: 'Errore durante la sincronizzazione: ' + error.message });
     }
 });
 
