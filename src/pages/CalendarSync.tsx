@@ -101,7 +101,11 @@ export function CalendarSync() {
                 if (finalM) {
                     const pharm = pharmacies.find(p => p.id === finalM);
                     if (pharm) {
-                        const mAppts = apptsForDay.filter(a => a.timeSlot && parseInt(a.timeSlot.split(':')[0]) < 13);
+                        const mAppts = apptsForDay.filter(a => {
+                            if (!a.timeSlot) return false;
+                            const hourMatch = a.timeSlot.match(/^(\d+)/);
+                            return hourMatch && parseInt(hourMatch[1]) < 13;
+                        });
                         eventsToSync.push({
                             title: `Farmacia: ${pharm.name} (M)`,
                             description: `Turno Mattina presso ${pharm.name}. ${mAppts.length} appuntamenti registrati.`,
@@ -113,7 +117,11 @@ export function CalendarSync() {
                 if (finalP) {
                     const pharm = pharmacies.find(p => p.id === finalP);
                     if (pharm) {
-                        const pAppts = apptsForDay.filter(a => a.timeSlot && parseInt(a.timeSlot.split(':')[0]) >= 13);
+                        const pAppts = apptsForDay.filter(a => {
+                            if (!a.timeSlot) return false;
+                            const hourMatch = a.timeSlot.match(/^(\d+)/);
+                            return hourMatch && parseInt(hourMatch[1]) >= 13;
+                        });
                         eventsToSync.push({
                             title: `Farmacia: ${pharm.name} (P)`,
                             description: `Turno Pomeriggio presso ${pharm.name}. ${pAppts.length} appuntamenti registrati.`,
@@ -137,8 +145,10 @@ export function CalendarSync() {
             });
 
             const data = await response.json();
+            console.log("Risultato Sync Ricevuto:", data);
+
             if (data.success) {
-                setSyncResult(data.results);
+                setSyncResult(data.results || { created: 0, total: eventsToSync.length });
             } else {
                 alert(`Errore: ${data.error}`);
             }

@@ -338,11 +338,11 @@ apiRouter.post('/calendar/sync', async (req, res) => {
         const results = {
             total: events.length,
             created: 0,
-            errors: 0
+            errors: 0,
+            errorDetails: []
         };
 
-        // Eseguiamo la sync in sequenza o batch
-        // Per semplicità facciamo inserimenti singoli (in produzione meglio batch o Promise.all con limiti)
+        // Eseguiamo la sync in sequenza
         for (const event of events) {
             try {
                 await calendar.events.insert({
@@ -358,13 +358,19 @@ apiRouter.post('/calendar/sync', async (req, res) => {
             } catch (err) {
                 console.error(`Errore creazione evento ${event.title}:`, err);
                 results.errors++;
+                results.errorDetails.push(`${event.title}: ${err.message}`);
             }
         }
 
+        console.log(`Sync completata: ${results.created} creati, ${results.errors} errori.`);
         res.json({ success: true, results });
     } catch (error) {
-        console.error('Errore sincronizzazione calendario:', error);
-        res.status(500).json({ success: false, error: 'Errore durante la sincronizzazione: ' + error.message });
+        console.error('Errore critico sincronizzazione calendario:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Errore durante la sincronizzazione: ' + error.message,
+            results: { total: (events && events.length) || 0, created: 0, errors: (events && events.length) || 0 }
+        });
     }
 });
 
