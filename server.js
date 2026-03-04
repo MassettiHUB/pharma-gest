@@ -112,6 +112,7 @@ apiRouter.get('/auth/google', (req, res) => {
         prompt: 'consent'
     });
 
+    console.log(`[AUTH DEBUG] Reindirizzamento a Google... URL Generato: ${url}`);
     res.redirect(url);
 });
 
@@ -184,12 +185,16 @@ Istruzioni per l'estrazione:
 2. "date": Estrai la data riportata in alto o nel foglio. Se presente, formattala come testuale (es "19-02-2026", "16-02-2026"). Se non presente, "Non trovata".
 3. "appointments": Questo è un array di oggetti. Ogni oggetto rappresenta un appuntamento unico per uno slot orario.
 
-   IMPORTANTE - REGOLE DI RAGGRUPPAMENTO:
-   - Spesso un singolo appuntamento è scritto su più righe (es: Cognome su una riga, Nome sotto; Prefisso tel su una riga, resto sotto).
-   - NON creare due appuntamenti diversi se l'orario è lo stesso o se il testo è chiaramente la continuazione della riga sopra.
-   - UNISCI le informazioni: "ALGHISI" (riga 1) + "MARIAROSA" (riga 2) nello stesso slot 11:00 deve diventare un unico oggetto con "patientName": "ALGHISI MARIAROSA".
-   - UNISCI i numeri di telefono: "331" + "7347547" deve diventare un unico campo "phone": "3317347547".
-   - CORREGGI errori comuni: "CLAUDIA" scritto vicino a cognomi maschili è spesso "CLAUDIO".
+   IMPORTANTE - REGOLE DI RAGGRUPPAMENTO E UNIONE:
+   - Un singolo appuntamento è QUASI SEMPRE scritto su 2 o 3 righe consecutive.
+   - SEPARAZIONE RIGHE: Spesso il Cognome è sulla riga 1, il Nome sulla riga 2. Oppure il prefisso tel (es "347") è sopra e il resto (es "3659635") è sotto.
+   - GESTIONE ORARIO: Se vedi un orario (es "11:30") scritto sulla seconda riga di un nome, quell'orario si riferisce a TUTTO l'appuntamento iniziato nella riga sopra. NON creare due appuntamenti.
+   - UNISCI TUTTO:
+      * "patientName": Unisci "CLAUDIO" (sopra) + "PARRAVICI" (sotto) in "PARRAVICI CLAUDIO".
+      * "phone": Unisci "347" (sopra) + "3659635" (sotto) in "3473659635".
+      * "luogo" (Note): Unisci "SI RICORDA LUI" (sopra) + "NON CHIAMARE" (sotto).
+   - Uno slot è "Libero" solo se l'intera riga è vuota o se non c'è continuità con quella sopra.
+   - Se trovi due nomi diversi con lo stesso orario o orari vicini senza riga di separazione, valuta se sono due persone diverse o se è un errore di trascrizione. In questo foglio, solitamente, ogni blocco di 2-3 righe è UN SOLO paziente.
 
    Campi per ogni appuntamento:
    - "time": l'orario (es "9:00", "10:30"). Normalizza gli orari senza i : (es "1130" -> "11:30", "10" -> "10:00").
@@ -218,10 +223,10 @@ Per il campo "rawText" riporta un log di debug testuale "Time -> Patient - Phone
 `;
 
         // Debug logging
-        console.log('[OCR DEBUG] Utilizzo modello:', 'gemini-1.5-flash');
+        console.log('[OCR DEBUG] Utilizzo modello:', 'gemini-2.5-flash');
 
         const response = await ai.models.generateContent({
-            model: 'gemini-1.5-flash', // Utilizzo 1.5-flash per massima compatibilità
+            model: 'gemini-2.5-flash', // Utilizzo 2.5-flash per prestazioni e affidabilità
             contents: [
                 prompt,
                 {
@@ -896,13 +901,25 @@ apiRouter.get('/stats', async (req, res) => {
             inValutazione: 0
         };
 
-        // Dati Grafico Trend Mese su Mese
-        const trendMensileMap = {};
+        // Dati Grafico Trend Mensile (Window di 6 mesi a cavallo di oggi: 4 passati, corrente, 1 futuro)
+        const trendData = [];
         const monthNames = ["Gen", "Feb", "Mar", "Apr", "Mag", "Giu", "Lug", "Ago", "Set", "Ott", "Nov", "Dic"];
+
+        for (let i = -4; i <= 1; i++) {
+            const d = new Date(today.getFullYear(), today.getMonth() + i, 1);
+            const mIdx = d.getMonth();
+            const yLabel = d.getFullYear();
+            trendData.push({
+                key: `${yLabel}-${String(mIdx + 1).padStart(2, '0')}`,
+                mese: monthNames[mIdx],
+                anno: yLabel,
+                appuntamenti: 0
+            });
+        }
 
         for (let i = 1; i < rows.length; i++) {
             const row = rows[i];
-            const dateStr = row[1]; // Colonna B Data (YYYY-MM-DD)
+            const dateStr = row[1]; // Colonna B Data
             const statusValue = row[7] || ''; // Colonna H Status
             const venduto = row[9] || ''; // Colonna J Venduto
             const followUp = row[10] || ''; // Colonna K Follow Up
@@ -915,29 +932,25 @@ apiRouter.get('/stats', async (req, res) => {
 
             if (!dateStr) continue;
 
-            // Fix per date nel formato foglio (se diverso da YYYY-MM-DD)
             let rowDate = new Date(dateStr);
             if (isNaN(rowDate.getTime())) {
-                // Riprova parse se formato DD/MM/YYYY
                 const parts = dateStr.split('/');
-                if (parts.length === 3) {
-                    rowDate = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
-                }
+                if (parts.length === 3) rowDate = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
             }
             if (isNaN(rowDate.getTime())) continue;
 
-            const rowMonth = rowDate.getMonth();
-            const rowYear = rowDate.getFullYear();
+            const rMonth = rowDate.getMonth();
+            const rYear = rowDate.getFullYear();
+            const rKey = `${rYear}-${String(rMonth + 1).padStart(2, '0')}`;
 
-            // 2. Popola dati storici Trend Mensile (solo anno corrente)
-            if (rowYear === currentYear) {
-                const mName = monthNames[rowMonth];
-                if (!trendMensileMap[mName]) trendMensileMap[mName] = 0;
-                trendMensileMap[mName]++;
+            // 2. Popola dati storici Trend Mensile (se rientra nella window dei 6 mesi)
+            const trendTarget = trendData.find(t => t.key === rKey);
+            if (trendTarget) {
+                trendTarget.appuntamenti++;
             }
 
             // Statistiche solo per MESE CORRENTE
-            if (rowMonth === currentMonth && rowYear === currentYear) {
+            if (rMonth === currentMonth && rYear === currentYear) {
                 appuntamentiMeseCorrente++;
 
                 if (statusValue.toLowerCase().includes('attesa')) {
@@ -965,11 +978,12 @@ apiRouter.get('/stats', async (req, res) => {
             { name: 'Venduti', value: esitiDistribuzione.venduti, fill: '#10b981' },
             { name: 'In Valutazione', value: esitiDistribuzione.inValutazione, fill: '#f59e0b' },
             { name: 'Non Venduti', value: esitiDistribuzione.nonVenduti, fill: '#ef4444' }
-        ].filter(item => item.value > 0); // Nascondi le fette a zero
+        ].filter(item => item.value > 0);
 
-        const chartTrend = Object.keys(trendMensileMap).map(m => ({
-            mese: m,
-            appuntamenti: trendMensileMap[m]
+        // Il trend è già pronto nell'array trendData, dobbiamo solo assicurarci che sia ordinato per key (anche se lo è già dalla creazione)
+        const chartTrend = trendData.map(t => ({
+            mese: t.mese,
+            appuntamenti: t.appuntamenti
         }));
 
         console.log("Statistiche elaborate con successo.");
