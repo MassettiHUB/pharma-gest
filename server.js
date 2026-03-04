@@ -25,6 +25,11 @@ app.use((req, res, next) => {
     next();
 });
 
+// Root path per test di caricamento base (Netlify)
+app.get('/', (req, res) => {
+    res.json({ message: "PharmaGest API Server is Online", environment: process.env.NETLIFY ? "Netlify" : "Local" });
+});
+
 // Configura Multer per ricevere immagini in memoria (senza salvarle su disco)
 const upload = multer({ storage: multer.memoryStorage() });
 
@@ -805,6 +810,11 @@ apiRouter.get('/stats', async (req, res) => {
 // Montiamo il router sia su / che su /api per massima compatibilità con Netlify e locale
 app.use('/api', apiRouter);
 app.use('/', apiRouter);
+
+// Fallback per rotte non trovate nelle API
+apiRouter.use((req, res) => {
+    res.status(404).json({ error: `Riconosciuta come API, ma rotta non trovata: ${req.url}` });
+});
 
 // Esporta l'handler per Netlify Functions
 export const handler = serverless(app);
