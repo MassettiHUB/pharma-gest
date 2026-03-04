@@ -217,8 +217,11 @@ Devi restituire ESCLUSIVAMENTE codice JSON grezzo (senza formattazione markdown 
 Per il campo "rawText" riporta un log di debug testuale "Time -> Patient - Phone - Note" unito da \n.
 `;
 
+        // Debug logging
+        console.log('[OCR DEBUG] Utilizzo modello:', 'gemini-1.5-flash');
+
         const response = await ai.models.generateContent({
-            model: 'gemini-2.0-flash', // Ripristino stabilità
+            model: 'gemini-1.5-flash', // Utilizzo 1.5-flash per massima compatibilità
             contents: [
                 prompt,
                 {
@@ -234,8 +237,8 @@ Per il campo "rawText" riporta un log di debug testuale "Time -> Patient - Phone
             }
         });
 
-        // Debug output
-        const textRes = response.response.text();
+        // Con @google/genai la risposta è direttamente in text
+        const textRes = response.text;
         console.log('[OCR DEBUG] Risposta grezza Gemini:', textRes);
 
         let parsedJson;
