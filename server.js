@@ -12,6 +12,38 @@ import serverless from 'serverless-http';
 // Carica variabili d'ambiente
 dotenv.config();
 
+/**
+ * Helper per ottenere l'istanza GoogleAuth configurata (Service Account)
+ * Supporta sia file locale che JSON in variabile d'ambiente.
+ */
+function getGoogleAuth(scopes) {
+    const authOptions = { scopes };
+    const credentialsJson = process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON;
+
+    if (credentialsJson) {
+        try {
+            // Rimuove eventuali apici esterni se presenti (comune in alcune config manuali)
+            let cleanJson = credentialsJson.trim();
+            if (cleanJson.startsWith("'") && cleanJson.endsWith("'")) cleanJson = cleanJson.slice(1, -1);
+
+            authOptions.credentials = JSON.parse(cleanJson);
+        } catch (err) {
+            console.error("ERRORE PARSING GOOGLE_APPLICATION_CREDENTIALS_JSON:", err.message);
+            // Hint specifico per l'errore riscontrato (mancanza { iniziale o troncamento)
+            if (err.message.includes("position 6") || credentialsJson.trim().startsWith('"type"')) {
+                throw new Error("Credenziali JSON malformate: manca probabilmente la '{' iniziale. Controlla la variabile GOOGLE_APPLICATION_CREDENTIALS_JSON su Netlify.");
+            }
+            throw new Error(`Errore configurazione credenziali JSON: ${err.message}`);
+        }
+    } else if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+        authOptions.keyFile = process.env.GOOGLE_APPLICATION_CREDENTIALS;
+    } else {
+        throw new Error("Credenziali Google mancanti (GOOGLE_APPLICATION_CREDENTIALS_JSON non trovata)");
+    }
+
+    return new google.auth.GoogleAuth(authOptions);
+}
+
 const app = express();
 const port = process.env.PORT || 3001;
 
@@ -251,17 +283,8 @@ apiRouter.post('/sync-sheet', async (req, res) => {
             return res.status(500).json({ error: 'GOOGLE_SHEETS_ID non configurato nel file .env' });
         }
 
-        // 1. Autenticazione con il Service Account (supporta sia file locale che JSON in variabile d'ambiente)
-        const authOptions = {
-            scopes: ['https://www.googleapis.com/auth/spreadsheets'],
-        };
-        if (process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON) {
-            authOptions.credentials = JSON.parse(process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON);
-        } else {
-            authOptions.keyFile = process.env.GOOGLE_APPLICATION_CREDENTIALS;
-        }
-
-        const auth = new google.auth.GoogleAuth(authOptions);
+        // 1. Autenticazione Centralizzata
+        const auth = getGoogleAuth(['https://www.googleapis.com/auth/spreadsheets']);
         const sheets = google.sheets({ version: 'v4', auth });
 
         // Nome del foglio di default (normalmente "Foglio1" o "Sheet1")
@@ -371,16 +394,7 @@ async function generateAndSendCallList() {
         const targetDateDisplay = target.toLocaleDateString('it-IT', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
 
         // 2. Lettura da Google Sheets
-        const authOptions = {
-            scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
-        };
-        if (process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON) {
-            authOptions.credentials = JSON.parse(process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON);
-        } else {
-            authOptions.keyFile = process.env.GOOGLE_APPLICATION_CREDENTIALS;
-        }
-
-        const auth = new google.auth.GoogleAuth(authOptions);
+        const auth = getGoogleAuth(['https://www.googleapis.com/auth/spreadsheets.readonly']);
         const sheets = google.sheets({ version: 'v4', auth });
         const spreadsheetMeta = await sheets.spreadsheets.get({ spreadsheetId: sheetId });
         const sheetName = spreadsheetMeta.data.sheets[0].properties.title;
@@ -525,15 +539,7 @@ apiRouter.get('/calls-for-date', async (req, res) => {
         if (!dateStr) return res.status(400).json({ error: 'Manca il parametro date' });
 
         const sheetId = process.env.GOOGLE_SHEETS_ID;
-        const authOptions = {
-            scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
-        };
-        if (process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON) {
-            authOptions.credentials = JSON.parse(process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON);
-        } else {
-            authOptions.keyFile = process.env.GOOGLE_APPLICATION_CREDENTIALS;
-        }
-        const auth = new google.auth.GoogleAuth(authOptions);
+        const auth = getGoogleAuth(['https://www.googleapis.com/auth/spreadsheets.readonly']);
         const sheets = google.sheets({ version: 'v4', auth });
         const spreadsheetMeta = await sheets.spreadsheets.get({ spreadsheetId: sheetId });
         const sheetName = spreadsheetMeta.data.sheets[0].properties.title;
@@ -590,15 +596,7 @@ apiRouter.post('/update-call-status', async (req, res) => {
         }
 
         const sheetId = process.env.GOOGLE_SHEETS_ID;
-        const authOptions = {
-            scopes: ['https://www.googleapis.com/auth/spreadsheets'],
-        };
-        if (process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON) {
-            authOptions.credentials = JSON.parse(process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON);
-        } else {
-            authOptions.keyFile = process.env.GOOGLE_APPLICATION_CREDENTIALS;
-        }
-        const auth = new google.auth.GoogleAuth(authOptions);
+        const auth = getGoogleAuth(['https://www.googleapis.com/auth/spreadsheets']);
         const sheets = google.sheets({ version: 'v4', auth });
         const spreadsheetMeta = await sheets.spreadsheets.get({ spreadsheetId: sheetId });
         const sheetName = spreadsheetMeta.data.sheets[0].properties.title;
@@ -640,15 +638,7 @@ apiRouter.post('/update-visit-outcome', async (req, res) => {
         if (!rowIndex) return res.status(400).json({ error: 'Manca rowIndex' });
 
         const sheetId = process.env.GOOGLE_SHEETS_ID;
-        const authOptions = {
-            scopes: ['https://www.googleapis.com/auth/spreadsheets'],
-        };
-        if (process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON) {
-            authOptions.credentials = JSON.parse(process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON);
-        } else {
-            authOptions.keyFile = process.env.GOOGLE_APPLICATION_CREDENTIALS;
-        }
-        const auth = new google.auth.GoogleAuth(authOptions);
+        const auth = getGoogleAuth(['https://www.googleapis.com/auth/spreadsheets']);
         const sheets = google.sheets({ version: 'v4', auth });
         const spreadsheetMeta = await sheets.spreadsheets.get({ spreadsheetId: sheetId });
         const sheetName = spreadsheetMeta.data.sheets[0].properties.title;
@@ -681,15 +671,7 @@ apiRouter.get('/follow-ups', async (req, res) => {
         if (!farmaciaTarget) return res.status(400).json({ error: 'Manca il parametro farmacia' });
 
         const sheetId = process.env.GOOGLE_SHEETS_ID;
-        const authOptions = {
-            scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
-        };
-        if (process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON) {
-            authOptions.credentials = JSON.parse(process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON);
-        } else {
-            authOptions.keyFile = process.env.GOOGLE_APPLICATION_CREDENTIALS;
-        }
-        const auth = new google.auth.GoogleAuth(authOptions);
+        const auth = getGoogleAuth(['https://www.googleapis.com/auth/spreadsheets.readonly']);
         const sheets = google.sheets({ version: 'v4', auth });
         const spreadsheetMeta = await sheets.spreadsheets.get({ spreadsheetId: sheetId });
         const sheetName = spreadsheetMeta.data.sheets[0].properties.title;
@@ -748,16 +730,7 @@ apiRouter.get('/stats', async (req, res) => {
             return res.status(500).json({ error: "Configurazione mancante" });
         }
 
-        const authOptions = {
-            scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
-        };
-        if (process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON) {
-            authOptions.credentials = JSON.parse(process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON);
-        } else {
-            authOptions.keyFile = process.env.GOOGLE_APPLICATION_CREDENTIALS;
-        }
-
-        const auth = new google.auth.GoogleAuth(authOptions);
+        const auth = getGoogleAuth(['https://www.googleapis.com/auth/spreadsheets.readonly']);
         const sheets = google.sheets({ version: 'v4', auth });
 
         console.log("Recupero metadati foglio...");
