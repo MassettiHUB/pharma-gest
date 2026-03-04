@@ -182,13 +182,22 @@ Riceverai l'immagine di un foglio degli appuntamenti. Devi analizzarla e restitu
 Istruzioni per l'estrazione:
 1. "pharmacyName": Cerca l'intestazione, spesso in alto. Se contiene "ZAMARDELLI", scrivi "ZAMARDELLI". Se "MONTIRONE", scrivi "Biccherai MONTIRONE". Se "DEI SANTI" o "DEI SAMTI", scrivi "FARMACIA DEI SANTI". Altrimenti estrai il nome che trovi. Se assente, "Non trovato".
 2. "date": Estrai la data riportata in alto o nel foglio. Se presente, formattala come testuale (es "19-02-2026", "16-02-2026"). Se non presente, "Non trovata".
-3. "appointments": Questo è un array di oggetti (uno per ogni riga/orario). Le colonne previste sono di solito Orario (es 9:00), Paziente (il nome o dettaglio), Telefono, Luogo/Note (ad es: FA/AB o annotazioni varie sparse vicine al nome).
-   - "time": l'orario della riga (es "9:00", "10:30"). Normalizza gli orari senza i : (es "1130" -> "11:30", "10" -> "10:00").
-   - "patientName": Il nome del paziente sulla riga. Se non c'è, scrivi "Libero / Non Rilevato".
-   - "phone": Il numero di telefono sulla riga. Associa correttamente cifre scritte minuscole o a margine sulla riga e scarta frecce o segni >, ad es. unificando "328 4560006".
-   - "luogo": Eventuali note a margine, scritte nella colonna Luogo, note tipo "CHIAMARE LE 14", "LEG", "TELEFON MOM", "ha".
+3. "appointments": Questo è un array di oggetti. Ogni oggetto rappresenta un appuntamento unico per uno slot orario.
 
-Ragiona riga per riga per evitare sovrapposizioni.
+   IMPORTANTE - REGOLE DI RAGGRUPPAMENTO:
+   - Spesso un singolo appuntamento è scritto su più righe (es: Cognome su una riga, Nome sotto; Prefisso tel su una riga, resto sotto).
+   - NON creare due appuntamenti diversi se l'orario è lo stesso o se il testo è chiaramente la continuazione della riga sopra.
+   - UNISCI le informazioni: "ALGHISI" (riga 1) + "MARIAROSA" (riga 2) nello stesso slot 11:00 deve diventare un unico oggetto con "patientName": "ALGHISI MARIAROSA".
+   - UNISCI i numeri di telefono: "331" + "7347547" deve diventare un unico campo "phone": "3317347547".
+   - CORREGGI errori comuni: "CLAUDIA" scritto vicino a cognomi maschili è spesso "CLAUDIO".
+
+   Campi per ogni appuntamento:
+   - "time": l'orario (es "9:00", "10:30"). Normalizza gli orari senza i : (es "1130" -> "11:30", "10" -> "10:00").
+   - "patientName": Il nome completo del paziente. Unisci più righe se necessario. Se assente, "Libero / Non Rilevato".
+   - "phone": Il numero di telefono completo. Unisci frammenti di numero su più righe.
+   - "luogo": Note, indicazioni tipo "SI RICORDA LUI", "NON CHIAMARE", "LEG", "FA/AB". Unisci note su più righe se riferite allo stesso appuntamento.
+
+Ragiona sulla struttura del foglio per identificare quando più righe appartengono allo stesso appuntamento.
 
 REQUISITO FONDAMENTALE STRICT SCHEMA:
 Devi restituire ESCLUSIVAMENTE codice JSON grezzo (senza formattazione markdown \`\`\`json). L'output deve corrispondere esattamente allo schema JSON in uscita:
@@ -209,7 +218,7 @@ Per il campo "rawText" riporta un log di debug testuale "Time -> Patient - Phone
 `;
 
         const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
+            model: 'gemini-2.0-flash',
             contents: [
                 prompt,
                 {
