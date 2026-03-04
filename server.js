@@ -21,24 +21,38 @@ function getGoogleAuth(scopes) {
     const credentialsJson = process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON;
 
     if (credentialsJson) {
+        let cleanJson = credentialsJson.trim();
         try {
-            // Rimuove eventuali apici esterni se presenti (comune in alcune config manuali)
-            let cleanJson = credentialsJson.trim();
-            if (cleanJson.startsWith("'") && cleanJson.endsWith("'")) cleanJson = cleanJson.slice(1, -1);
+            // Rimuove eventuali apici esterni se presenti (comune in alcune config manuali o export di shell)
+            if ((cleanJson.startsWith("'") && cleanJson.endsWith("'")) ||
+                (cleanJson.startsWith('"') && cleanJson.endsWith('"'))) {
+                cleanJson = cleanJson.slice(1, -1);
+            }
+
+            // Debug log sicuro (solo lunghezza e primi/ultimi caratteri)
+            console.log(`[AUTH DEBUG] Lunghezza stringa JSON: ${cleanJson.length}`);
+            console.log(`[AUTH DEBUG] Inizio stringa: ${cleanJson.substring(0, 20)}...`);
+            console.log(`[AUTH DEBUG] Fine stringa: ...${cleanJson.substring(cleanJson.length - 10)}`);
 
             authOptions.credentials = JSON.parse(cleanJson);
         } catch (err) {
             console.error("ERRORE PARSING GOOGLE_APPLICATION_CREDENTIALS_JSON:", err.message);
-            // Hint specifico per l'errore riscontrato (mancanza { iniziale o troncamento)
-            if (err.message.includes("position 6") || credentialsJson.trim().startsWith('"type"')) {
-                throw new Error("Credenziali JSON malformate: manca probabilmente la '{' iniziale. Controlla la variabile GOOGLE_APPLICATION_CREDENTIALS_JSON su Netlify.");
+
+            // Analisi approfondita per l'utente
+            const firstChars = cleanJson.substring(0, 10);
+            let technicalHint = "";
+            if (firstChars.includes('"type"')) {
+                technicalHint = "Il JSON inizia con '\"type\"' invece di '{'. Questo conferma che la parentesi graffa iniziale è mancante o è stata mangiata da qualche processo di copia/incolla.";
+            } else if (cleanJson.startsWith("\\{") || cleanJson.startsWith("\\\"")) {
+                technicalHint = "La stringa sembra contenere caratteri di escape (backslashes) iniziali che non dovrebbero esserci.";
             }
-            throw new Error(`Errore configurazione credenziali JSON: ${err.message}`);
+
+            throw new Error(`Credenziali JSON malformate: ${err.message}. ${technicalHint} (Inizio rilevato: ${firstChars}...)`);
         }
     } else if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
         authOptions.keyFile = process.env.GOOGLE_APPLICATION_CREDENTIALS;
     } else {
-        throw new Error("Credenziali Google mancanti (GOOGLE_APPLICATION_CREDENTIALS_JSON non trovata)");
+        throw new Error("Credenziali Google mancanti (GOOGLE_APPLICATION_CREDENTIALS_JSON non trovata). Verifica le variabili d'ambiente su Netlify.");
     }
 
     return new google.auth.GoogleAuth(authOptions);
