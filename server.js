@@ -218,7 +218,7 @@ Per il campo "rawText" riporta un log di debug testuale "Time -> Patient - Phone
 `;
 
         const response = await ai.models.generateContent({
-            model: 'gemini-2.0-flash',
+            model: 'gemini-2.0-flash', // Ripristino stabilità
             contents: [
                 prompt,
                 {
@@ -229,18 +229,30 @@ Per il campo "rawText" riporta un log di debug testuale "Time -> Patient - Phone
                 }
             ],
             config: {
-                temperature: 0.1, // Bassa temperatura per parsing preciso e deterministico
+                temperature: 0.1,
                 responseMimeType: "application/json"
             }
         });
 
-        const textRes = response.text;
-        const parsedJson = JSON.parse(textRes);
+        // Debug output
+        const textRes = response.response.text();
+        console.log('[OCR DEBUG] Risposta grezza Gemini:', textRes);
+
+        let parsedJson;
+        try {
+            parsedJson = JSON.parse(textRes);
+        } catch (pe) {
+            console.error('[OCR DEBUG] Errore parsing JSON:', pe, 'Testo:', textRes);
+            throw new Error('Errore nel parsing della risposta dell\'IA');
+        }
 
         res.json(parsedJson);
     } catch (error) {
         console.error('Errore Gemini API (Multimodal OCR):', error);
-        res.status(500).json({ error: 'Errore durante l analisi del foglio con l IA' });
+        res.status(500).json({
+            error: 'Errore durante l\'analisi del foglio con l\'IA',
+            details: error.message
+        });
     }
 });
 
