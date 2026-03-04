@@ -18,13 +18,10 @@ export function OCR() {
     const [editingIdx, setEditingIdx] = useState<number | null>(null);
     const [rowForm, setRowForm] = useState<any>({});
 
-    const [testResult, setTestResult] = useState<{ status: string, message: string } | null>(null);
-
     const checkHealth = async () => {
         try {
             const res = await fetch('/api/health');
             const data = await res.json();
-            setTestResult(data);
             if (data.status === 'ok') {
                 alert('Connessione riuscita! Il server risponde correttamente.');
             }
