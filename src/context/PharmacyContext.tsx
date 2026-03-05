@@ -187,12 +187,56 @@ export function PharmacyProvider({ children }: { children: React.ReactNode }) {
         }
     }, [googleToken]);
 
+    const exportData = () => {
+        const data = {
+            pharmacies,
+            appointments,
+            genericPlan,
+            calendarOverrides
+        };
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `pharmamas_backup_${new Date().toISOString().split('T')[0]}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    };
+
+    const importData = (jsonData: string) => {
+        try {
+            const parsed = JSON.parse(jsonData);
+            if (parsed.pharmacies) setPharmacies(parsed.pharmacies);
+            if (parsed.appointments) setAppointments(parsed.appointments);
+            if (parsed.genericPlan) setGenericPlan(parsed.genericPlan);
+            if (parsed.calendarOverrides) setCalendarOverrides(parsed.calendarOverrides);
+            alert('Dati ripristinati con successo!');
+        } catch (e) {
+            console.error(e);
+            alert('Errore durante il parsing del backup JSON.');
+        }
+    };
+
+    const resetAppointments = () => {
+        setAppointments([]);
+    };
+
+    const resetToDefaults = () => {
+        setPharmacies(DEFAULT_PHARMACIES);
+        setAppointments([]);
+        setGenericPlan(createEmptyPlan());
+        setCalendarOverrides({});
+    };
+
     return (
         <PharmacyContext.Provider value={{
             pharmacies, addPharmacy, updatePharmacy, removePharmacy,
             currentUser, setCurrentUser, genericPlan, setGenericPlan,
             calendarOverrides, setCalendarOverrides, appointments, setAppointments,
-            googleUser, googleToken, selectedCalendarId, setSelectedCalendarId, loginWithGoogle, logoutGoogle
+            googleUser, googleToken, selectedCalendarId, setSelectedCalendarId, loginWithGoogle, logoutGoogle,
+            exportData, importData, resetAppointments, resetToDefaults
         }}>
             {children}
         </PharmacyContext.Provider>

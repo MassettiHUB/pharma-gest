@@ -1,61 +1,71 @@
+import { useState } from 'react';
 import { NavLink } from 'react-router-dom';
-import { Home, Store, Calendar, CalendarCheck2, ListTodo, Camera, User, Cloud, LayoutDashboard } from 'lucide-react';
+import { Home, Store, Calendar, CalendarCheck2, ListTodo, Camera, User, Cloud, LayoutDashboard, Menu, X } from 'lucide-react';
 import { usePharmacy } from '../context/PharmacyContext';
 
 export function Navigation() {
     const { currentUser, setCurrentUser, googleUser, loginWithGoogle, logoutGoogle } = usePharmacy();
+    const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+    const closeMenu = () => setIsMenuOpen(false);
+
     return (
         <nav className="navbar">
             <div className="nav-container">
-                <h1 className="nav-logo">PharmaMas</h1>
-                <ul className="nav-links">
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }} className="nav-mobile-header">
+                    <h1 className="nav-logo">PharmaMas</h1>
+                    <button className="menu-toggle" onClick={() => setIsMenuOpen(!isMenuOpen)}>
+                        {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
+                    </button>
+                </div>
+                <ul className={`nav-links ${isMenuOpen ? 'open' : ''}`}>
                     <li>
-                        <NavLink to="/" className={({ isActive }) => (isActive ? 'active' : '')}>
+                        <NavLink to="/" className={({ isActive }) => (isActive ? 'active' : '')} onClick={closeMenu}>
                             <Home size={18} /> Home
                         </NavLink>
                     </li>
                     <li>
-                        <NavLink to="/dashboard" className={({ isActive }) => (isActive ? 'active' : '')}>
+                        <NavLink to="/dashboard" className={({ isActive }) => (isActive ? 'active' : '')} onClick={closeMenu}>
                             <LayoutDashboard size={18} /> Prestazioni
                         </NavLink>
                     </li>
                     <li>
-                        <NavLink to="/farmacie" className={({ isActive }) => (isActive ? 'active' : '')}>
+                        <NavLink to="/farmacie" className={({ isActive }) => (isActive ? 'active' : '')} onClick={closeMenu}>
                             <Store size={18} /> Farmacie
                         </NavLink>
                     </li>
                     <li>
-                        <NavLink to="/planning" className={({ isActive }) => (isActive ? 'active' : '')}>
+                        <NavLink to="/planning" className={({ isActive }) => (isActive ? 'active' : '')} onClick={closeMenu}>
                             <Calendar size={18} /> Planning Mensile
                         </NavLink>
                     </li>
                     <li>
-                        <NavLink to="/giornate" className={({ isActive }) => (isActive ? 'active' : '')}>
+                        <NavLink to="/giornate" className={({ isActive }) => (isActive ? 'active' : '')} onClick={closeMenu}>
                             <CalendarCheck2 size={18} /> Giornate (Riepilogo)
                         </NavLink>
                     </li>
                     <li>
-                        <NavLink to="/calendar" className={({ isActive }) => (isActive ? 'active' : '')}>
+                        <NavLink to="/calendar" className={({ isActive }) => (isActive ? 'active' : '')} onClick={closeMenu}>
                             <Cloud size={18} /> Sync Google
                         </NavLink>
                     </li>
                     <li>
-                        <NavLink to="/appointments" className={({ isActive }) => (isActive ? 'active' : '')}>
+                        <NavLink to="/appointments" className={({ isActive }) => (isActive ? 'active' : '')} onClick={closeMenu}>
                             <ListTodo size={18} /> Appuntamenti
                         </NavLink>
                     </li>
                     <li>
-                        <NavLink to="/ocr" className={({ isActive }) => (isActive ? 'active' : '')}>
+                        <NavLink to="/ocr" className={({ isActive }) => (isActive ? 'active' : '')} onClick={closeMenu}>
                             <Camera size={18} /> OCR
                         </NavLink>
                     </li>
                     <li>
-                        <NavLink to="/google" className={({ isActive }) => (isActive ? 'active' : '')}>
+                        <NavLink to="/google" className={({ isActive }) => (isActive ? 'active' : '')} onClick={closeMenu}>
                             <Cloud size={18} /> Google API
                         </NavLink>
                     </li>
                 </ul>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                <div className={`nav-user-actions ${isMenuOpen ? 'open' : ''}`} style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'rgba(255,255,255,0.1)', padding: '0.3rem 0.8rem', borderRadius: '2rem', border: '1px solid rgba(255,255,255,0.2)' }}>
                         <User size={16} />
                         <select

@@ -58,4 +58,8 @@ export type PharmacyContextType = {
     setSelectedCalendarId: (id: string | null) => void;
     loginWithGoogle: () => void;
     logoutGoogle: () => void;
+    exportData: () => void;
+    importData: (jsonData: string) => void;
+    resetAppointments: () => void;
+    resetToDefaults: () => void;
 };

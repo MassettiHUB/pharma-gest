@@ -356,7 +356,7 @@ export function Appointments() {
                         <p style={{ color: '#94a3b8', fontSize: '0.9rem' }}>Clicca su "Nuovo Appuntamento" per iniziare.</p>
                     </div>
                 ) : (
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '1.5rem' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 320px), 1fr))', gap: '1.5rem' }}>
                         {appointments.map(a => {
                             const pharmacy = pharmacies.find(p => p.id === a.pharmacyId);
                             return (

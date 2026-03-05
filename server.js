@@ -682,17 +682,29 @@ apiRouter.get('/calls-for-date', async (req, res) => {
         // Recuperiamo i dati e ci portiamo dietro anche l'indice di riga originario
         const readResponse = await sheets.spreadsheets.values.get({
             spreadsheetId: sheetId,
-            range: `${sheetName}!A:L`,
+            range: `${sheetName}!A:M`,
         });
         const rows = readResponse.data.values || [];
 
         const appointmentsForDate = [];
 
-        // rows[0] è solitamente l'header, quindi partiamo da i=1 se ha senso, o mappiamo tutto e filtriamo.
+        // rows[0] è solitamente l'header, quindi partiamo da i=1
         // L'indice in Google Sheets è 1-based. Quindi row 0 su array JS = riga 1 su Sheet.
-        for (let i = 0; i < rows.length; i++) {
+        const todayStr = new Date().toISOString().split('T')[0];
+
+        for (let i = 1; i < rows.length; i++) {
             const row = rows[i];
-            if (row[1] === dateStr) {
+            const rowDate = row[1] || '';
+
+            // Filtro: solo la data richiesta, oppure tutte le date da oggi in poi se 'all'
+            let includeRow = false;
+            if (dateStr === 'all') {
+                if (rowDate >= todayStr) includeRow = true;
+            } else {
+                if (rowDate === dateStr) includeRow = true;
+            }
+
+            if (includeRow) {
                 const statusValue = row[7] || ''; // Colonna H è all'indice 7
                 appointmentsForDate.push({
                     rowIndex: i + 1, // +1 per le API e l'UI Sheets
@@ -706,12 +718,13 @@ apiRouter.get('/calls-for-date', async (req, res) => {
                     esitoVisita: row[8] || '', // Colonna I
                     venduto: row[9] || '',     // Colonna J
                     followUp: row[10] || '',   // Colonna K
-                    dataRivisita: row[11] || ''// Colonna L
+                    dataRivisita: row[11] || '',// Colonna L
+                    assegnatoA: row[12] || 'Mauro' // Colonna M
                 });
             }
         }
 
-        console.log(`Trovati ${appointmentsForDate.length} appuntamenti per la data ${dateStr}`);
+        console.log(`Trovati ${appointmentsForDate.length} appuntamenti`);
         res.json({ success: true, count: appointmentsForDate.length, data: appointmentsForDate });
 
     } catch (err) {
@@ -765,10 +778,10 @@ apiRouter.post('/update-call-status', async (req, res) => {
     }
 });
 
-// POST: Aggiorna l'esito della visita (Colonne I:L)
+// POST: Aggiorna l'esito della visita (Colonne I:M)
 apiRouter.post('/update-visit-outcome', async (req, res) => {
     try {
-        const { rowIndex, esitoVisita, venduto, followUp, dataRivisita } = req.body;
+        const { rowIndex, esitoVisita, venduto, followUp, dataRivisita, assegnatoA } = req.body;
 
         if (!rowIndex) return res.status(400).json({ error: 'Manca rowIndex' });
 
@@ -778,11 +791,12 @@ apiRouter.post('/update-visit-outcome', async (req, res) => {
         const spreadsheetMeta = await sheets.spreadsheets.get({ spreadsheetId: sheetId });
         const sheetName = spreadsheetMeta.data.sheets[0].properties.title;
 
-        // Scriviamo nel range I{rowIndex}:L{rowIndex}
-        const range = `${sheetName}!I${rowIndex}:L${rowIndex}`;
+        // Scriviamo nel range I{rowIndex}:M{rowIndex}
+        const range = `${sheetName}!I${rowIndex}:M${rowIndex}`;
         // Follow up viene salvato come 'Sì' o 'No' per rendere leggibile il foglio
         const followUpText = followUp ? 'Sì' : 'No';
-        const values = [[esitoVisita || '', venduto || '', followUpText, dataRivisita || '']];
+        const assignedUser = assegnatoA || 'Mauro';
+        const values = [[esitoVisita || '', venduto || '', followUpText, dataRivisita || '', assignedUser]];
 
         await sheets.spreadsheets.values.update({
             spreadsheetId: sheetId,

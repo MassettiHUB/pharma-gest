@@ -83,13 +83,22 @@ export function OCR() {
         setIsProcessing(true);
 
         // 1. Trovare la Farmacia (Mappatura Testo OCR -> ID Farmacia)
-        const typedName = extractedData.pharmacyName?.toLowerCase() || '';
         let matchedPharmacyId = pharmacies[0]?.id; // Fallback
+        const typedName = extractedData.pharmacyName?.toLowerCase().trim() || '';
 
-        for (const p of pharmacies) {
-            if (typedName.includes(p.name.toLowerCase()) || p.name.toLowerCase().includes(typedName)) {
-                matchedPharmacyId = p.id;
-                break;
+        if (typedName) {
+            // Cerchiamo prima una corrispondenza esatta o quasi esatta
+            for (const p of pharmacies) {
+                const pName = p.name.toLowerCase();
+                const pAddress = (p.address || '').toLowerCase();
+
+                if (
+                    pName.includes(typedName) || typedName.includes(pName) ||
+                    (pAddress && (pAddress.includes(typedName) || typedName.includes(pAddress)))
+                ) {
+                    matchedPharmacyId = p.id;
+                    break;
+                }
             }
         }
 
@@ -103,8 +112,19 @@ export function OCR() {
             formattedDate = `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
         }
 
-        // 3. Generare gli Appuntamenti per la Lista Globale
-        const newAppointments: Appointment[] = extractedData.appointments.map((apt: any) => {
+        // 3. Generare gli Appuntamenti per la Lista Globale (ignorando gli slot liberi)
+        const validAppointments = extractedData.appointments.filter((apt: any) => {
+            const name = (apt.patientName || apt.details || '').toLowerCase();
+            return name && !name.includes('libero / non rilevato') && !name.includes('libero') && name.trim() !== '';
+        });
+
+        if (validAppointments.length === 0) {
+            alert("Nessun appuntamento valido trovato (gli slot liberi sono stati ignorati).");
+            setIsProcessing(false);
+            return;
+        }
+
+        const newAppointments: Appointment[] = validAppointments.map((apt: any) => {
             // Dividi il nome in Nome (Prima parola) e Cognome (Resto)
             const pts = (apt.patientName || apt.details || 'Paziente Sconosciuto').split(' ');
             const fName = pts[0] || '';
@@ -171,10 +191,10 @@ export function OCR() {
                 </button>
             </div>
 
-            <div className="ocr-container" style={{ display: 'grid', gridTemplateColumns: 'minmax(300px, 1fr) minmax(300px, 1fr)', gap: '2rem' }}>
+            <div className="ocr-container" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 300px), 1fr))', gap: '2rem' }}>
 
                 {/* Upload Column */}
-                <div className="card">
+                <div className="card upload-card" style={{ display: 'flex', flexDirection: 'column' }}>
                     <h3 style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                         <Camera size={20} color="var(--primary)" /> Acquisizione
                     </h3>
