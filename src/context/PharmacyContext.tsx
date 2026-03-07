@@ -139,7 +139,8 @@ export function PharmacyProvider({ children }: { children: React.ReactNode }) {
     }, [selectedCalendarId]);
 
     const loginWithGoogle = () => {
-        window.location.href = '/api/auth/google';
+        // Aggiunto ?v=2 per forzare il browser a bypassare eventuali redirect 302 vecchi (come quello con la porta 3000) tenuti in cache
+        window.location.href = '/api/auth/google?v=2';
     };
 
     const logoutGoogle = () => {
