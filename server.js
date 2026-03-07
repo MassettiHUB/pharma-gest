@@ -9,8 +9,8 @@ import cron from 'node-cron';
 import nodemailer from 'nodemailer';
 import serverless from 'serverless-http';
 
-// Carica variabili d'ambiente
-dotenv.config();
+// Carica variabili d'ambiente (sovrascrivendo eventuali variabili di shell cacheate)
+dotenv.config({ override: true });
 
 /**
  * Helper per ottenere l'istanza GoogleAuth configurata (Service Account)
