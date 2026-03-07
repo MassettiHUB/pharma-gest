@@ -221,9 +221,21 @@ export function Giornate() {
                             <span style={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#1d4ed8', background: '#dbeafe', padding: '0.3rem 0.6rem', borderRadius: '6px', border: '1px solid #bfdbfe' }}>ESITO COMPILATO</span>
                         )}
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', fontSize: '0.9rem', color: '#64748b' }}>
-                        {appt.telefono && <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: '#334155', fontWeight: 500 }}><Phone size={14} color="#94a3b8" /> {appt.telefono}</span>}
-                        {appt.note && <span style={{ fontStyle: 'italic', background: '#f8fafc', padding: '0.2rem 0.6rem', borderRadius: '6px', border: '1px solid #f1f5f9' }}>Note: {appt.note}</span>}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', fontSize: '0.9rem', color: '#64748b' }}>
+                            {appt.telefono && <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: '#334155', fontWeight: 500 }}><Phone size={14} color="#94a3b8" /> {appt.telefono}</span>}
+                            {appt.note && <span style={{ fontStyle: 'italic', background: '#f8fafc', padding: '0.2rem 0.6rem', borderRadius: '6px', border: '1px solid #f1f5f9' }}>Note: {appt.note}</span>}
+                        </div>
+                        {appt.status === 'annullato' && (
+                            <button
+                                onClick={(e) => { e.stopPropagation(); fetchSuggestions(appt.farmacia); }}
+                                style={{ background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', padding: '0.35rem 0.75rem', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.35rem', transition: 'all 0.2s', boxShadow: '0 1px 2px rgba(220, 38, 38, 0.1)' }}
+                                onMouseEnter={(e) => { e.currentTarget.style.background = '#fee2e2'; }}
+                                onMouseLeave={(e) => { e.currentTarget.style.background = '#fef2f2'; }}
+                            >
+                                🚀 Trova Sostituto
+                            </button>
+                        )}
                     </div>
                 </div>
             </div>
@@ -496,7 +508,7 @@ export function Giornate() {
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e2e8f0', paddingBottom: '1rem', marginBottom: '1.5rem' }}>
                             <div>
                                 <h3 style={{ margin: '0 0 0.25rem 0', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                    <Phone size={22} color="#3b82f6" /> Suggerimenti Follow-up
+                                    <Phone size={22} color="#3b82f6" /> Lista Attesa / Sostituti (Anti-Buco)
                                 </h3>
                                 <p style={{ margin: 0, color: '#64748b', fontSize: '0.95rem' }}>Pazienti di <strong>{suggestedTargetFarmacia.toUpperCase()}</strong> da ricontattare.</p>
                             </div>
@@ -518,7 +530,14 @@ export function Giornate() {
                                 {suggestedPatients.map((p, idx) => (
                                     <div key={idx} style={{ background: '#fff', padding: '1.25rem', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 1px 2px rgba(0,0,0,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                         <div>
-                                            <h4 style={{ margin: '0 0 0.25rem 0', fontSize: '1.1rem', color: '#1e293b' }}>{p.paziente}</h4>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.25rem' }}>
+                                                <h4 style={{ margin: 0, fontSize: '1.1rem', color: '#1e293b' }}>{p.paziente}</h4>
+                                                {p.suggestionReason && (
+                                                    <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#0369a1', background: '#e0f2fe', padding: '0.2rem 0.6rem', borderRadius: '2rem', border: '1px solid #bae6fd' }}>
+                                                        {p.suggestionReason}
+                                                    </span>
+                                                )}
+                                            </div>
 
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#0f172a', fontWeight: 600, fontSize: '0.95rem', marginBottom: '0.5rem' }}>
                                                 <Phone size={14} color="#64748b" /> {p.telefono}

@@ -837,15 +837,35 @@ apiRouter.get('/follow-ups', async (req, res) => {
         for (let i = 1; i < rows.length; i++) {
             const row = rows[i];
             const farmaciaCorrente = row[0] || '';
-            const statusChiamata = row[7] || '';
 
             // Verifichiamo che sia della stessa farmacia
             if (farmaciaCorrente.toLowerCase() === farmaciaTarget.toLowerCase()) {
+                const noteRaw = row[5] || '';
+                const note = noteRaw.toLowerCase();
+                const statusChiamata = (row[7] || '').toLowerCase();
                 const followUp = row[10] || '';   // Colonna K
                 const dataRivisita = row[11] || '';// Colonna L
 
-                // Se richiede Follow-up (Sì) o ha una Data Rivisita e non è palesemente Annullato
-                if ((followUp === 'Sì' || dataRivisita !== '') && !statusChiamata.includes('Annullato')) {
+                let reason = '';
+
+                // 1. In lista d'attesa esplicita nelle note
+                if (note.includes('attesa') || note.includes('lista') || note.includes('comod') || note.includes('anticip')) {
+                    reason = "In lista d'attesa";
+                }
+                // 2. Annullato in passato (e non è in attesa esplicita, ma possiamo proporlo come ripescaggio)
+                else if (statusChiamata.includes('annullato')) {
+                    reason = "Aveva annullato";
+                }
+                // 3. Follow-up periodico e non annullato
+                else if ((followUp === 'Sì' || dataRivisita !== '') && !statusChiamata.includes('annullato')) {
+                    if (dataRivisita) {
+                        reason = `Follow-Up (Previsto: ${dataRivisita})`;
+                    } else {
+                        reason = "Da ricontattare (Follow-Up)";
+                    }
+                }
+
+                if (reason) {
                     followUps.push({
                         rowIndex: i + 1,
                         farmacia: farmaciaCorrente,
@@ -853,9 +873,10 @@ apiRouter.get('/follow-ups', async (req, res) => {
                         orario: row[2] || '',
                         paziente: row[3] || '',
                         telefono: row[4] || '',
-                        note: row[5] || '',
+                        note: noteRaw,
                         esitoVisita: row[8] || '', // Esito Precedente
-                        dataRivisita: dataRivisita
+                        dataRivisita: dataRivisita,
+                        suggestionReason: reason
                     });
                 }
             }
