@@ -445,8 +445,25 @@ export function Appointments() {
                         position: 'relative' // relative per il bottone X
                     }}>
                         {/* Header Modale (Solo a Schermo) */}
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }} className="print-hidden-header">
-                            <h2 style={{ margin: 0, color: '#0f172a' }}>Lista Chiamate Promemoria per il {new Date(callListDate).toLocaleDateString('it-IT')}</h2>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', flexWrap: 'wrap', gap: '1rem' }} className="print-hidden-header">
+                            <h2 style={{ margin: 0, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+                                <span>Lista Chiamate del:</span>
+                                <input
+                                    type="date"
+                                    value={callListDate}
+                                    onChange={(e) => setCallListDate(e.target.value)}
+                                    style={{
+                                        padding: '0.4rem 0.8rem',
+                                        borderRadius: '8px',
+                                        border: '1px solid #cbd5e1',
+                                        fontSize: '1.2rem',
+                                        color: '#334155',
+                                        outline: 'none',
+                                        fontFamily: 'inherit',
+                                        background: '#f8fafc'
+                                    }}
+                                />
+                            </h2>
                             <div style={{ display: 'flex', gap: '1rem' }}>
                                 <button className="btn btn-secondary" disabled={sendingEmail} onClick={handleSendTestEmail} style={{ background: '#f8fafc', color: '#334155', border: '1px solid #cbd5e1' }}>
                                     <Mail size={18} /> {sendingEmail ? 'Invio...' : 'Invia a Marisa via Email'}
