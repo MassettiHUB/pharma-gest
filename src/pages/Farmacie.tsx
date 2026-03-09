@@ -3,7 +3,7 @@ import { usePharmacy } from '../context/PharmacyContext';
 import { Plus, Trash2, Edit2 } from 'lucide-react';
 
 export function Farmacie() {
-    const { pharmacies, addPharmacy, removePharmacy, updatePharmacy, currentUser } = usePharmacy();
+    const { pharmacies, addPharmacy, removePharmacy, updatePharmacy, renamePharmacyGlobally, currentUser } = usePharmacy();
     const [isAdding, setIsAdding] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [viewingPharmacy, setViewingPharmacy] = useState<any | null>(null);
@@ -16,10 +16,32 @@ export function Farmacie() {
         notes: '',
     });
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (editingId) {
-            updatePharmacy(editingId, formData);
+            const existingPharmacy = pharmacies.find(p => p.id === editingId);
+            const isNameChanged = existingPharmacy && existingPharmacy.name !== formData.name;
+
+            if (isNameChanged) {
+                const confirmGlobalRename = window.confirm(
+                    `Hai modificato il nome della farmacia da "${existingPharmacy.name}" a "${formData.name}".\n\nVuoi aggiornare questo nome anche negli appuntamenti passati/futuri (su Google Sheets) e nella pianificazione del calendario?\n\n(Clicca "OK" per aggiornare ovunque, o "Annulla" per modificare solo l'anagrafica)`
+                );
+
+                if (confirmGlobalRename) {
+                    await renamePharmacyGlobally(editingId, formData.name);
+                    // Rinominiamo anche gli altri campi
+                    updatePharmacy(editingId, {
+                        address: formData.address,
+                        phone: formData.phone,
+                        workingDays: formData.workingDays,
+                        notes: formData.notes
+                    });
+                } else {
+                    updatePharmacy(editingId, formData);
+                }
+            } else {
+                updatePharmacy(editingId, formData);
+            }
             setEditingId(null);
         } else {
             addPharmacy(formData);

@@ -890,6 +890,78 @@ apiRouter.get('/follow-ups', async (req, res) => {
     }
 });
 
+// ==========================================
+// 6. ENDPOINT RENAME FARMACIA (Globale)
+// ==========================================
+apiRouter.post('/rename-pharmacy', async (req, res) => {
+    try {
+        const { oldName, newName } = req.body;
+        if (!oldName || !newName) {
+            return res.status(400).json({ error: 'oldName e newName sono obbligatori' });
+        }
+
+        const sheetId = process.env.GOOGLE_SHEETS_ID;
+        const auth = getGoogleAuth(['https://www.googleapis.com/auth/spreadsheets']);
+        const sheets = google.sheets({ version: 'v4', auth });
+
+        // 1. Ottieni ID del foglio
+        const spreadsheetMeta = await sheets.spreadsheets.get({ spreadsheetId: sheetId });
+        const firstSheet = spreadsheetMeta.data.sheets[0];
+        const sheetName = firstSheet.properties.title;
+        const numericSheetId = firstSheet.properties.sheetId;
+
+        // 2. Leggi Colonna A
+        const readResponse = await sheets.spreadsheets.values.get({
+            spreadsheetId: sheetId,
+            range: `${sheetName}!A:A`,
+        });
+        const rows = readResponse.data.values || [];
+
+        // 3. Prepara UpdateCellsRequest
+        const requests = [];
+        rows.forEach((row, index) => {
+            const currentName = row[0] || '';
+            if (currentName.toLowerCase() === oldName.toLowerCase()) {
+                requests.push({
+                    updateCells: {
+                        range: {
+                            sheetId: numericSheetId,
+                            startRowIndex: index,
+                            endRowIndex: index + 1,
+                            startColumnIndex: 0,
+                            endColumnIndex: 1
+                        },
+                        rows: [{
+                            values: [{
+                                userEnteredValue: { stringValue: newName }
+                            }]
+                        }],
+                        fields: 'userEnteredValue'
+                    }
+                });
+            }
+        });
+
+        if (requests.length === 0) {
+            return res.json({ success: true, message: `Nessuna riga trovata in Google Sheets per la farmacia ${oldName}.` });
+        }
+
+        // 4. Esegui batchUpdate
+        await sheets.spreadsheets.batchUpdate({
+            spreadsheetId: sheetId,
+            requestBody: {
+                requests: requests
+            }
+        });
+
+        res.json({ success: true, updatedRows: requests.length, message: `Rinominati ${requests.length} appuntamenti in Google Sheets.` });
+
+    } catch (error) {
+        console.error("Errore durante il rinomino globale della farmacia:", error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // GET: Statistiche Dashboard (KPIs & Grafici)
 apiRouter.get('/stats', async (req, res) => {
     try {

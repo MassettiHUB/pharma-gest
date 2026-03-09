@@ -45,6 +45,7 @@ export type PharmacyContextType = {
     addPharmacy: (p: Omit<Pharmacy, 'id'>) => void;
     updatePharmacy: (id: string, p: Partial<Pharmacy>) => void;
     removePharmacy: (id: string) => void;
+    renamePharmacyGlobally: (id: string, newName: string) => Promise<void>;
     currentUser: 'Mauro' | 'Marisa';
     setCurrentUser: (u: 'Mauro' | 'Marisa') => void;
     genericPlan: PlanWeek[];

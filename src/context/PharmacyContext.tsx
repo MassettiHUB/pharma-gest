@@ -108,6 +108,61 @@ export function PharmacyProvider({ children }: { children: React.ReactNode }) {
         setPharmacies((prev) => prev.map((p) => (p.id === id ? { ...p, ...updates } : p)));
     };
 
+    const renamePharmacyGlobally = async (id: string, newName: string) => {
+        const pharmacy = pharmacies.find(p => p.id === id);
+        if (!pharmacy || pharmacy.name === newName) return;
+
+        const oldName = pharmacy.name;
+
+        // 1. Aggiorna nome nel Context Farmacie
+        updatePharmacy(id, { name: newName });
+
+        // (NB: L'appuntamento usa pharmacyId, quindi non modifichiamo farmacia in CACHE qui. La dashboard ricaricherà correttamente con il nuovo lookup)
+
+        // 3. Aggiorna Generic Plan
+        setGenericPlan(prev => {
+            return prev.map(week => {
+                const newDays = { ...week.days };
+                Object.keys(newDays).forEach(day => {
+                    const typedDay = day as keyof typeof newDays;
+                    if (newDays[typedDay].M.toLowerCase() === oldName.toLowerCase()) newDays[typedDay].M = newName;
+                    if (newDays[typedDay].P.toLowerCase() === oldName.toLowerCase()) newDays[typedDay].P = newName;
+                });
+                return { ...week, days: newDays };
+            });
+        });
+
+        // 3. Aggiorna Calendar Overrides
+        setCalendarOverrides(prev => {
+            const newOverrides = { ...prev };
+            Object.keys(newOverrides).forEach(dateStr => {
+                const override = newOverrides[dateStr];
+                if (override.M === oldName) override.M = newName;
+                if (override.P === oldName) override.P = newName;
+            });
+            return newOverrides;
+        });
+
+        // 4. Chiama API per aggiornare Google Sheets
+        try {
+            const res = await fetch('/api/rename-pharmacy', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ oldName, newName })
+            });
+            const data = await res.json();
+            if (!data.success) {
+                console.error("Errore durante il rinomino su Google Sheets:", data.error);
+                alert("La farmacia è stata rinominata localmente, ma c'è stato un problema con Google Sheets: " + data.error);
+            } else {
+                console.log(`Rinomino globale completato: ${data.message}`);
+            }
+        } catch (err) {
+            console.error("Errore di rete durante rename-pharmacy:", err);
+            alert("Errore di rete: Impossibile contattare il server per rinominare su Google Sheets.");
+        }
+    };
+
     const removePharmacy = (id: string) => {
         setPharmacies((prev) => prev.filter((p) => p.id !== id));
     };
@@ -233,7 +288,7 @@ export function PharmacyProvider({ children }: { children: React.ReactNode }) {
 
     return (
         <PharmacyContext.Provider value={{
-            pharmacies, addPharmacy, updatePharmacy, removePharmacy,
+            pharmacies, addPharmacy, updatePharmacy, removePharmacy, renamePharmacyGlobally,
             currentUser, setCurrentUser, genericPlan, setGenericPlan,
             calendarOverrides, setCalendarOverrides, appointments, setAppointments,
             googleUser, googleToken, selectedCalendarId, setSelectedCalendarId, loginWithGoogle, logoutGoogle,
