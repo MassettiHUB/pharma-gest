@@ -134,37 +134,30 @@ export function Giornate() {
 
     // LOGICA LIVELLO 1: AGGREGAZIONE GRIGLIA
     const getGridCards = () => {
-        const farmacieMap: Record<string, { appts: CallRow[], dates: Set<string> }> = {};
+        const giornateMap: Record<string, { appts: CallRow[], farmacia: string, dataRaw: string, dataSort: string }> = {};
 
         appointments.forEach(a => {
             const fName = a.farmacia || 'Sconosciuta';
-            if (!farmacieMap[fName]) farmacieMap[fName] = { appts: [], dates: new Set() };
-            farmacieMap[fName].appts.push(a);
-            farmacieMap[fName].dates.add(formatDateForSort(a.data));
+            const dSort = formatDateForSort(a.data);
+            const key = `${fName}_${dSort}`;
+
+            if (!giornateMap[key]) {
+                giornateMap[key] = { appts: [], farmacia: fName, dataRaw: a.data || dSort, dataSort: dSort };
+            }
+            giornateMap[key].appts.push(a);
         });
 
-        // Per ogni farmacia, trova la data MIN (più vicina)
-        const cards = Object.keys(farmacieMap).map(fName => {
-            const fData = farmacieMap[fName];
-
-            // Ordiniamo le date per trovare la prima
-            const sortedDates = Array.from(fData.dates).sort((a, b) => a.localeCompare(b));
-            const nextDateSortable = sortedDates[0];
-
-            // Troviamo l'appuntamento reale per formattare la data originale se necessario 
-            // ma useremo semplicemente il primo appuntamento utile di quel giorno per estrarre la label
-            const firstApptOfNextDate = fData.appts.find(a => formatDateForSort(a.data) === nextDateSortable);
-
+        const cards = Object.values(giornateMap).map(gData => {
             return {
-                farmacia: fName,
-                nextDateStr: firstApptOfNextDate?.data || nextDateSortable, // Fallback a formato YYYY-MM-DD se null
-                nextDateSortable: nextDateSortable,
-                totalFutureDates: sortedDates.length,
-                totalApptsNextDate: fData.appts.filter(a => formatDateForSort(a.data) === nextDateSortable).length
+                farmacia: gData.farmacia,
+                nextDateStr: gData.dataRaw,
+                nextDateSortable: gData.dataSort,
+                totalFutureDates: 1, // Oramai è una singola giornata per card
+                totalApptsNextDate: gData.appts.length
             };
         });
 
-        // Ordina le cards in base alla data del prossimo appuntamento
+        // Ordina le cards in base alla data
         cards.sort((a, b) => a.nextDateSortable.localeCompare(b.nextDateSortable));
 
         return cards;
@@ -303,7 +296,7 @@ export function Giornate() {
 
                         <div style={{ background: '#f8fafc', padding: '1rem', borderRadius: '12px', border: '1px solid #f1f5f9' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#475569', fontSize: '0.85rem', marginBottom: '0.25rem' }}>
-                                <CalendarIcon size={14} /> Prossima Data
+                                <CalendarIcon size={14} /> Data Giornata
                             </div>
                             <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#1e293b' }}>
                                 {card.nextDateStr}
