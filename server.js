@@ -924,6 +924,18 @@ apiRouter.get('/stats', async (req, res) => {
         let appuntamentiMeseCorrente = 0;
         let appuntamentiAttesa = 0; // Liberi / In Attesa
         let daRicontattare = 0; // Follow up = 'Sì'
+        let totAppuntamenti = 0; // Utile per Fill Rate al volo (se calcolato qui)
+
+        // Metriche Operative
+        let pastAppointmentsCount = 0;
+        let noShowCount = 0;
+        let leadTimeSumDays = 0;
+        let leadTimeCount = 0;
+
+        let completatiTeam = 0;
+        let completatiPersonale = 0;
+        let followUpPianificati = 0; // Stimato da "Sì" nel follow up storico
+        let followUpRealizzati = 0; // Stimato base (mock o da logica paziente)
 
         // Per Tasso di Conversione
         let totaleEsitati = 0;
@@ -1004,9 +1016,44 @@ apiRouter.get('/stats', async (req, res) => {
                     }
                 }
             }
+
+            // Nuovi KPI Operativi (Consideriamo tutti gli appuntamenti passati o esitati per i tassi)
+            // Una visita è "passata" o "valutabile" se ha un esito o se la data è passata.
+            const isPast = rowDate < today && !isNaN(rowDate);
+            if (isPast || venduto) {
+                pastAppointmentsCount++;
+                if (venduto.toLowerCase().includes('no-show') || venduto.toLowerCase().includes('assente')) {
+                    noShowCount++;
+                } else if (venduto && venduto !== 'No-Show') {
+                    // Contiamo nei completati se c'è un esito diverso da No-Show
+                    const notes = (row[5] || '').toUpperCase();
+                    if (notes.includes('TEAM')) {
+                        completatiTeam++;
+                    } else {
+                        completatiPersonale++;
+                    }
+                }
+            }
+
+            // Lead Time Medio (Data Sync - Data Appuntamento)
+            // Proviamo a estrarre la data di sincronizzazione dalla Colonna G se presente, o assumiamo la creazione recente
+            const syncDateStr = row[6] || '';
+            let syncDate = new Date(syncDateStr);
+            if (!isNaN(syncDate.getTime()) && !isNaN(rowDate.getTime())) {
+                const diffTime = Math.abs(rowDate.getTime() - syncDate.getTime());
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                // Escludiamo valori assurdi per pulizia dato
+                if (diffDays >= 0 && diffDays <= 180) {
+                    leadTimeSumDays += diffDays;
+                    leadTimeCount++;
+                }
+            }
+
         }
 
         const conversionRate = totaleEsitati > 0 ? Math.round((totaleVenduti / totaleEsitati) * 100) : 0;
+        const noShowRate = pastAppointmentsCount > 0 ? ((noShowCount / pastAppointmentsCount) * 100).toFixed(1) : "0.0";
+        const avgLeadTime = leadTimeCount > 0 ? (leadTimeSumDays / leadTimeCount).toFixed(1) : "0.0";
 
         // Formato array per recharts {name, value}
         const chartEsiti = [
@@ -1029,7 +1076,14 @@ apiRouter.get('/stats', async (req, res) => {
                     appuntamentiMese: appuntamentiMeseCorrente,
                     appuntamentiAttesa: appuntamentiAttesa,
                     tassoConversione: conversionRate,
-                    daRicontattare: daRicontattare
+                    daRicontattare: daRicontattare,
+                    noShowRate: parseFloat(noShowRate),
+                    avgLeadTime: parseFloat(avgLeadTime),
+                    completatiTeam,
+                    completatiPersonale,
+                    totaleCompletati: completatiTeam + completatiPersonale,
+                    pastAppointmentsCount,
+                    followUpPercent: 78 // Valore mock come da piano. Da implementare la logica esatta
                 },
                 charts: {
                     esiti: chartEsiti,
