@@ -119,9 +119,9 @@ export function Dashboard() {
 
             {/* Header */}
             <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', borderBottom: '1px solid rgba(148,163,184,0.1)', paddingBottom: '1rem' }}>
-                <h1 style={{ margin: 0, fontSize: '1.5rem', color: '#f8fafc', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <h1 style={{ margin: 0, fontSize: '1.5rem', color: '#f8fafc', display: 'flex', alignItems: 'center', gap: '0.75rem', textTransform: 'uppercase' }}>
                     <LayoutDashboard size={28} color="#0ea5e9" />
-                    CENTRO ECCELLENZA SERVIZI UDITIVI - <span style={{ color: '#0ea5e9', fontWeight: 400 }}>DASHBOARD QUALITÀ & OPERATIVITÀ</span>
+                    PHARMAMAS - <span style={{ color: '#0ea5e9', fontWeight: 400 }}>QUALITÀ E OPERATIVITÀ DEL CRUSCOTTO</span>
                 </h1>
                 <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
                     <select style={{ background: '#1e293b', color: '#f8fafc', border: '1px solid #334155', borderRadius: '8px', padding: '0.5rem 1rem', outline: 'none' }}>
