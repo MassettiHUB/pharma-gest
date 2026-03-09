@@ -61,6 +61,7 @@ export function Farmacie() {
         setEditingId(pharmacy.id);
         setIsAdding(true);
         setViewingPharmacy(null); // Chiudiamo la modale quando passiamo in modifica
+        window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
     const visiblePharmacies = pharmacies.filter(p => {
