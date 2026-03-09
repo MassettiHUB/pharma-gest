@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Calendar as CalendarIcon, MapPin, Phone, Check, X, Clock, User, ArrowLeft, CalendarDays } from 'lucide-react';
+import { Calendar as CalendarIcon, MapPin, Phone, Check, X, Clock, User, ArrowLeft, CalendarDays, MessageSquare } from 'lucide-react';
 
 interface CallRow {
     rowIndex: number;
@@ -186,6 +186,19 @@ export function Giornate() {
             :
             <span style={{ background: '#e0f2fe', color: '#0369a1', padding: '0.2rem 0.6rem', borderRadius: '2rem', fontSize: '0.75rem', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '4px', border: '1px solid #bae6fd' }}><User size={12} /> {appt.assegnatoA || 'Mauro'}</span>;
 
+        const handleSendSMS = (e: React.MouseEvent) => {
+            e.stopPropagation();
+            if (!appt.telefono || appt.telefono.trim().length < 5) {
+                alert("Nessun numero di telefono valido disponibile per questo paziente.");
+                return;
+            }
+            const cleanPhone = appt.telefono.replace(/[^\d+]/g, '');
+            const formLink = import.meta.env.VITE_GOOGLE_FORM_LINK || "https://forms.gle/INSERISCI_QUI_IL_TUO_LINK";
+            const message = `Gentile ${appt.paziente}, grazie per esserti affidato/a al Centro Eccellenza Servizi Uditivi. Ci aiuteresti a migliorare? Lascia una recensione di 1 minuto a questo link: ${formLink}`;
+            const encodedMessage = encodeURIComponent(message);
+            window.location.href = `sms:${cleanPhone}?body=${encodedMessage}`;
+        };
+
         return (
             <div
                 style={{
@@ -226,16 +239,28 @@ export function Giornate() {
                             {appt.telefono && <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: '#334155', fontWeight: 500 }}><Phone size={14} color="#94a3b8" /> {appt.telefono}</span>}
                             {appt.note && <span style={{ fontStyle: 'italic', background: '#f8fafc', padding: '0.2rem 0.6rem', borderRadius: '6px', border: '1px solid #f1f5f9' }}>Note: {appt.note}</span>}
                         </div>
-                        {appt.status === 'annullato' && (
-                            <button
-                                onClick={(e) => { e.stopPropagation(); fetchSuggestions(appt.farmacia); }}
-                                style={{ background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', padding: '0.35rem 0.75rem', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.35rem', transition: 'all 0.2s', boxShadow: '0 1px 2px rgba(220, 38, 38, 0.1)' }}
-                                onMouseEnter={(e) => { e.currentTarget.style.background = '#fee2e2'; }}
-                                onMouseLeave={(e) => { e.currentTarget.style.background = '#fef2f2'; }}
-                            >
-                                🚀 Trova Sostituto
-                            </button>
-                        )}
+                        <div style={{ display: 'flex', gap: '0.75rem' }}>
+                            {appt.esitoVisita && appt.status !== 'annullato' && (
+                                <button
+                                    onClick={handleSendSMS}
+                                    style={{ background: '#f0fdf4', color: '#16a34a', border: '1px solid #bbf7d0', padding: '0.35rem 0.75rem', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.35rem', transition: 'all 0.2s', boxShadow: '0 1px 2px rgba(22, 163, 74, 0.1)' }}
+                                    onMouseEnter={(e) => { e.currentTarget.style.background = '#dcfce7'; }}
+                                    onMouseLeave={(e) => { e.currentTarget.style.background = '#f0fdf4'; }}
+                                >
+                                    <MessageSquare size={14} /> Chiedi Recensione
+                                </button>
+                            )}
+                            {appt.status === 'annullato' && (
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); fetchSuggestions(appt.farmacia); }}
+                                    style={{ background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', padding: '0.35rem 0.75rem', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.35rem', transition: 'all 0.2s', boxShadow: '0 1px 2px rgba(220, 38, 38, 0.1)' }}
+                                    onMouseEnter={(e) => { e.currentTarget.style.background = '#fee2e2'; }}
+                                    onMouseLeave={(e) => { e.currentTarget.style.background = '#fef2f2'; }}
+                                >
+                                    🚀 Trova Sostituto
+                                </button>
+                            )}
+                        </div>
                     </div>
                 </div>
             </div>
