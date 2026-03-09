@@ -454,6 +454,7 @@ export function Giornate() {
                                         <option value="Sì">Sì, Venduto</option>
                                         <option value="No">No, Non Venduto</option>
                                         <option value="In Valutazione">In Valutazione</option>
+                                        <option value="No-Show">No-Show (Assente)</option>
                                     </select>
                                 </div>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
