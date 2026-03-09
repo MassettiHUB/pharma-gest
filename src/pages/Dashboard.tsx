@@ -41,6 +41,15 @@ export function Dashboard() {
         ? Math.min(100, Math.round((data.kpi.appuntamentiMese / totalSlotCapacity) * 100))
         : 92; // Mock fallback if no data
 
+    // Calculate previous month fill rate
+    const prevMonthAppts = data?.charts?.trend?.[3]?.appuntamenti || 0;
+    const prevFillRate = prevMonthAppts > 0 && totalSlotCapacity > 0
+        ? Math.min(100, Math.round((prevMonthAppts / totalSlotCapacity) * 100))
+        : Math.max(0, fillRate - 5); // Fallback mock se non ci sono dati passati
+    const fillRateDiff = fillRate - prevFillRate;
+    const fillRateDiffText = fillRateDiff >= 0 ? `+${fillRateDiff}%` : `${fillRateDiff}%`;
+    const fillRateColor = fillRateDiff >= 0 ? '#10b981' : '#ef4444';
+
     useEffect(() => {
         const fetchStats = async () => {
             try {
@@ -144,7 +153,7 @@ export function Dashboard() {
                         {/* 1. FILL RATE */}
                         <div className="dark-panel" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative' }}>
                             <div className="dark-panel-title" style={{ width: '100%' }}>
-                                <span>1. FILL RATE <span style={{ textTransform: 'none', fontWeight: 400 }}>(Tasso di Occupazione)</span></span>
+                                <span>1. TASSO DI RIEMPIMENTO <span style={{ textTransform: 'none', fontWeight: 400 }}>(Tasso di Occupazione)</span></span>
                                 <ArrowUpRight size={16} color="#10b981" />
                             </div>
                             <div style={{ width: 160, height: 160 }}>
@@ -158,8 +167,13 @@ export function Dashboard() {
                                     <p style={{ margin: 0, fontSize: '0.75rem', color: '#94a3b8' }}>OBIETTIVO &gt; 90%</p>
                                 </div>
                             </div>
-                            <div style={{ color: '#10b981', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.25rem', marginTop: '-20px' }}>
-                                <CheckCircle2 size={14} /> Tempo Lavorativo Ottimizzato
+                            <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.25rem', marginTop: '-20px' }}>
+                                <div style={{ color: '#10b981', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                                    <CheckCircle2 size={14} /> Tempo Lavorativo Ottimizzato
+                                </div>
+                                <div style={{ color: fillRateColor, fontSize: '0.75rem', fontWeight: 600, background: 'rgba(255,255,255,0.05)', padding: '0.2rem 0.5rem', borderRadius: '4px' }}>
+                                    {fillRateDiffText} vs mese prec.
+                                </div>
                             </div>
                         </div>
 
