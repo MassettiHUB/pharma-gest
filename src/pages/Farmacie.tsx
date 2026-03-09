@@ -61,7 +61,15 @@ export function Farmacie() {
         setEditingId(pharmacy.id);
         setIsAdding(true);
         setViewingPharmacy(null); // Chiudiamo la modale quando passiamo in modifica
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+
+        setTimeout(() => {
+            const formElement = document.querySelector('.form-card');
+            if (formElement) {
+                formElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            } else {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+        }, 50);
     };
 
     const visiblePharmacies = pharmacies.filter(p => {
