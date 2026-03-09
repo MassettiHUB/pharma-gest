@@ -30,6 +30,7 @@ export interface Appointment {
     firstAppointmentDate?: string;
     dateStr: string;
     timeSlot: string;
+    called?: boolean;
 }
 
 export type DailyOverride = {

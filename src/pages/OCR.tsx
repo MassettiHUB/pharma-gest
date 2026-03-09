@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useMemo } from 'react';
 import { Camera, UploadCloud, ScanLine, FileText, CheckCircle2, Edit2, Save, X } from 'lucide-react';
 import { usePharmacy } from '../context/PharmacyContext';
 import { useNavigate } from 'react-router-dom';
@@ -9,7 +9,7 @@ export function OCR() {
     const [isProcessing, setIsProcessing] = useState(false);
     const [extractedData, setExtractedData] = useState<any | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
-    const { pharmacies, appointments, setAppointments } = usePharmacy();
+    const { pharmacies, appointments, setAppointments, currentUser } = usePharmacy();
     const navigate = useNavigate();
 
     // Gestione Edit Mode
@@ -74,20 +74,22 @@ export function OCR() {
         }
     };
 
-    const autofillAppointment = async () => {
-        if (!extractedData || !extractedData.appointments || extractedData.appointments.length === 0) {
-            alert("Nessun appuntamento valido da salvare.");
-            return;
-        }
+    // Calculate category from notes
+    const getPharmacyCategory = (notes?: string): 'Team' | 'Personale' | 'Altro' => {
+        if (!notes) return 'Altro';
+        const upperNotes = notes.toUpperCase();
+        if (upperNotes.includes('TEAM')) return 'Team';
+        if (upperNotes.includes(currentUser.toUpperCase())) return 'Personale';
+        return 'Altro';
+    };
 
-        setIsProcessing(true);
-
-        // 1. Trovare la Farmacia (Mappatura Testo OCR -> ID Farmacia)
+    // Derived matched pharmacy info
+    const matchedPharmacyInfo = useMemo(() => {
+        if (!extractedData) return null;
         let matchedPharmacyId = pharmacies[0]?.id; // Fallback
         const typedName = extractedData.pharmacyName?.toLowerCase().trim() || '';
 
         if (typedName) {
-            // Cerchiamo prima una corrispondenza esatta o quasi esatta
             for (const p of pharmacies) {
                 const pName = p.name.toLowerCase();
                 const pAddress = (p.address || '').toLowerCase();
@@ -101,6 +103,27 @@ export function OCR() {
                 }
             }
         }
+
+        const matchedObj = pharmacies.find(p => p.id === matchedPharmacyId) || pharmacies[0];
+        const category = getPharmacyCategory(matchedObj?.notes);
+
+        return {
+            id: matchedObj?.id || '',
+            name: matchedObj?.name || extractedData.pharmacyName,
+            notes: matchedObj?.notes,
+            category
+        };
+    }, [extractedData, pharmacies, currentUser]);
+
+    const autofillAppointment = async () => {
+        if (!extractedData || !extractedData.appointments || extractedData.appointments.length === 0) {
+            alert("Nessun appuntamento valido da salvare.");
+            return;
+        }
+
+        setIsProcessing(true);
+
+        const matchedPharmacyId = matchedPharmacyInfo?.id || pharmacies[0]?.id;
 
         // 2. Parsare la data dal formato testuale (es 19/02/2026 -> 2026-02-19)
         let formattedDate = new Date().toISOString().split('T')[0];
@@ -287,14 +310,27 @@ export function OCR() {
                                     <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Nome Farmacia</label>
                                     {editingHeader ?
                                         <input className="form-input" value={headerForm.pharmacyName} onChange={(e) => setHeaderForm({ ...headerForm, pharmacyName: e.target.value })} style={{ padding: '0.4rem', marginTop: '0.2rem' }} /> :
-                                        <p style={{ fontWeight: 500, paddingBottom: '0.5rem', borderBottom: '1px solid #dcfce7', minHeight: '1.5rem' }}>{extractedData.pharmacyName}</p>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', paddingBottom: '0.5rem', borderBottom: '1px solid #dcfce7', minHeight: '1.5rem' }}>
+                                            <p style={{ fontWeight: 500, margin: 0 }}>{extractedData.pharmacyName}</p>
+                                            {matchedPharmacyInfo && (
+                                                <span style={{
+                                                    fontSize: '0.7rem', padding: '0.2rem 0.5rem', borderRadius: '12px', fontWeight: 600,
+                                                    background: matchedPharmacyInfo.category === 'Team' ? '#fef08a' : (matchedPharmacyInfo.category === 'Personale' ? '#bfdbfe' : '#f1f5f9'),
+                                                    color: matchedPharmacyInfo.category === 'Team' ? '#854d0e' : (matchedPharmacyInfo.category === 'Personale' ? '#1d4ed8' : '#475569'),
+                                                    border: '1px solid',
+                                                    borderColor: matchedPharmacyInfo.category === 'Team' ? '#facc15' : (matchedPharmacyInfo.category === 'Personale' ? '#93c5fd' : '#cbd5e1')
+                                                }}>
+                                                    {matchedPharmacyInfo.category === 'Team' ? '👥 Team' : (matchedPharmacyInfo.category === 'Personale' ? '👤 Personale' : '⚪ Altro')}
+                                                </span>
+                                            )}
+                                        </div>
                                     }
                                 </div>
                                 <div>
                                     <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Data della giornata</label>
                                     {editingHeader ?
                                         <input className="form-input" value={headerForm.date} onChange={(e) => setHeaderForm({ ...headerForm, date: e.target.value })} style={{ padding: '0.4rem', marginTop: '0.2rem' }} /> :
-                                        <p style={{ fontWeight: 500, paddingBottom: '0.5rem', borderBottom: '1px solid #dcfce7', minHeight: '1.5rem' }}>{extractedData.date}</p>
+                                        <p style={{ fontWeight: 500, paddingBottom: '0.5rem', borderBottom: '1px solid #dcfce7', minHeight: '1.5rem', margin: 0 }}>{extractedData.date}</p>
                                     }
                                 </div>
                             </div>

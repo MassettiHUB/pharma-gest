@@ -191,6 +191,11 @@ export function Appointments() {
         return grouped;
     };
 
+    const toggleCalled = (id: string, current: boolean | undefined) => {
+        setAppointments(appointments.map(a => a.id === id ? { ...a, called: !current } : a));
+    };
+
+
     const handleSendTestEmail = async () => {
         if (!googleToken) {
             alert("Devi effettuare l'accesso con Google prima di testare l'invio.");
@@ -387,15 +392,26 @@ export function Appointments() {
                                                 </span>
                                             )}
                                         </div>
-                                        <span style={{
-                                            display: 'inline-flex', alignItems: 'center', gap: '0.3rem', padding: '0.25rem 0.75rem',
-                                            borderRadius: '2rem', fontSize: '0.75rem', fontWeight: 600,
-                                            background: a.status === 'Confermato' ? '#dcfce7' : '#f1f5f9',
-                                            color: a.status === 'Confermato' ? '#166534' : '#475569'
-                                        }}>
-                                            {a.status === 'Confermato' ? <Check size={14} /> : <Clock size={14} />}
-                                            {a.status}
-                                        </span>
+                                        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                                            {a.called && (
+                                                <span title="Chiamato" style={{
+                                                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                                                    width: '24px', height: '24px', borderRadius: '50%',
+                                                    background: '#22c55e', color: '#fff'
+                                                }}>
+                                                    <Check size={14} strokeWidth={3} />
+                                                </span>
+                                            )}
+                                            <span style={{
+                                                display: 'inline-flex', alignItems: 'center', gap: '0.3rem', padding: '0.25rem 0.75rem',
+                                                borderRadius: '2rem', fontSize: '0.75rem', fontWeight: 600,
+                                                background: a.status === 'Confermato' ? '#dcfce7' : '#f1f5f9',
+                                                color: a.status === 'Confermato' ? '#166534' : '#475569'
+                                            }}>
+                                                {a.status === 'Confermato' ? <Check size={14} /> : <Clock size={14} />}
+                                                {a.status}
+                                            </span>
+                                        </div>
                                     </div>
 
                                     <div style={{ height: '1px', background: '#f1f5f9' }} />
@@ -477,10 +493,11 @@ export function Appointments() {
                             </div>
                         </div>
 
-                        {/* Stili inline specifici per nascondere l'header in fase di stampa, per pulizia extra */}
                         <style>{`
                             @media print {
                                 .print-hidden-header { display: none !important; }
+                                .print-hidden-button { display: none !important; }
+                                .print-only-checkbox { display: block !important; margin: 0 auto !important; }
                                 .print-only-section { margin: 0 !important; padding: 0 !important; box-shadow: none !important; border-radius: 0 !important; max-width: 100% !important; }
                             }
                         `}</style>
@@ -519,7 +536,27 @@ export function Appointments() {
                                                             <td>{a.phone}</td>
                                                             <td style={{ fontSize: '0.85rem' }}>{a.notes || '-'}</td>
                                                             <td style={{ textAlign: 'center', verticalAlign: 'middle' }}>
-                                                                <div style={{ width: '20px', height: '20px', border: '2px solid #000', margin: '0 auto' }}></div>
+                                                                <button
+                                                                    className="print-hidden-button"
+                                                                    onClick={() => toggleCalled(a.id, a.called)}
+                                                                    title={a.called ? "Segna come non chiamato" : "Segna come chiamato"}
+                                                                    style={{
+                                                                        width: '28px',
+                                                                        height: '28px',
+                                                                        background: a.called ? '#22c55e' : '#fff',
+                                                                        border: '2px solid',
+                                                                        borderColor: a.called ? '#16a34a' : '#cbd5e1',
+                                                                        borderRadius: '6px',
+                                                                        cursor: 'pointer',
+                                                                        display: 'inline-flex',
+                                                                        alignItems: 'center',
+                                                                        justifyContent: 'center',
+                                                                        color: '#fff',
+                                                                    }}
+                                                                >
+                                                                    {a.called && <Check size={18} strokeWidth={3} />}
+                                                                </button>
+                                                                <div className="print-only-checkbox" style={{ display: 'none', width: '20px', height: '20px', border: '2px solid #000' }}></div>
                                                             </td>
                                                         </tr>
                                                     ))}
