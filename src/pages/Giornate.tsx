@@ -193,8 +193,8 @@ export function Giornate() {
                 return;
             }
             const cleanPhone = appt.telefono.replace(/[^\d+]/g, '');
-            const formLink = import.meta.env.VITE_GOOGLE_FORM_LINK || "https://forms.gle/INSERISCI_QUI_IL_TUO_LINK";
-            const message = `Gentile ${appt.paziente}, grazie per esserti affidato/a al Centro Eccellenza Servizi Uditivi. Ci aiuteresti a migliorare? Lascia una recensione di 1 minuto a questo link: ${formLink}`;
+            const formLink = import.meta.env.VITE_GOOGLE_FORM_LINK || "https://forms.gle/VQvv5aaQ351pxmCB6";
+            const message = `Gentile ${appt.paziente}, ci piacerebbe conoscere la sua opinione sul test uditivo effettuato presso la nostra farmacia. Lasci una breve recensione al link per aiutarci a crescere. È un contributo completamente anonimo. ${formLink}`;
             const encodedMessage = encodeURIComponent(message);
             window.location.href = `sms:${cleanPhone}?body=${encodedMessage}`;
         };
